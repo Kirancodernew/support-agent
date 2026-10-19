@@ -1,0 +1,10 @@
+# Local Redis for development. Deployed apps use Redis Cloud via REDIS_URL.
+services:
+  redis:
+    image: redis:8-alpine
+    # noeviction: a job queue must never have keys silently dropped (BullMQ requirement).
+    command: ["redis-server", "--maxmemory-policy", "noeviction", "--appendonly", "yes"]
+    ports: ["6379:6379"]
+    volumes: ["redis-data:/data"]
+volumes:
+  redis-data:
