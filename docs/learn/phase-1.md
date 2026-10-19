@@ -108,3 +108,14 @@ query made the isolation test fail.
 - How can a login endpoint leak which emails are registered, and how do you prevent it?
 - Why proxy API calls through the frontend's domain?
 - Why does signup need a transaction?
+
+## Found after deploy
+
+3. **Production had the same `JWT_SECRET` as local.** A live check signed a token with the
+   local secret and production accepted it, so anyone with the laptop's `.env` could forge
+   a production login. Cause: the clipboard was overwritten between generating the new
+   secret and pasting it. Fix: generate and paste the production secret in one go, then
+   verify with a forged-token check. Lesson: **one secret per environment, and test it.**
+4. **Valid signature + malformed ids → 500.** `verifySession` only checked the fields were
+   present; `findById('not-an-id')` then threw. Now it requires real ObjectIds and returns
+   401. A test covers it (it fails on the old code).

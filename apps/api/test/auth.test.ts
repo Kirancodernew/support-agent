@@ -1,3 +1,4 @@
+import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { UserModel } from '../src/models/user';
@@ -86,5 +87,11 @@ describe('login and logout', () => {
   it('rejects a missing or tampered session cookie', async () => {
     await request(app).get('/auth/me').expect(401);
     await request(app).get('/auth/me').set('Cookie', 'sa_session=not.a.jwt').expect(401);
+  });
+
+  it('rejects a correctly signed token whose ids are malformed (401, not a crash)', async () => {
+    const token = jwt.sign({ wid: 'not-an-id' }, process.env.JWT_SECRET ?? '', { subject: 'also-not-an-id' });
+    await request(app).get('/auth/me').set('Cookie', `sa_session=${token}`).expect(401);
+    await request(app).get('/api-keys').set('Cookie', `sa_session=${token}`).expect(401);
   });
 });
