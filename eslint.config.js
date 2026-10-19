@@ -7,6 +7,7 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   { languageOptions: { globals: { ...globals.node } } },
+  { files: ['apps/web/**/*.{ts,tsx}'], languageOptions: { globals: { ...globals.browser } } },
   {
     rules: {
       // `_`-prefixed names are intentionally unused (e.g. Express needs 4 args to detect an error handler).

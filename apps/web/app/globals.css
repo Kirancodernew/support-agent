@@ -11,3 +11,52 @@ p { color: var(--muted); line-height: 1.5; }
 .ok { color: var(--ok); font-weight: 600; }
 .bad { color: var(--bad); font-weight: 600; }
 code { font-size: 13px; }
+
+:root { --accent: #2563eb; --accent-fg: #fff; --input: #fff; --danger: #b91c1c; }
+@media (prefers-color-scheme: dark) { :root { --accent: #3b82f6; --input: #0f0f0f; --danger: #f87171; } }
+
+a { color: var(--accent); }
+h2 { margin: 0 0 4px; font-size: 18px; }
+main.narrow { max-width: 420px; }
+.muted { color: var(--muted); }
+.row { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+
+button, .button {
+  display: inline-block; padding: 9px 16px; border-radius: 8px; border: 1px solid transparent;
+  background: var(--accent); color: var(--accent-fg); font: inherit; font-weight: 600;
+  text-decoration: none; cursor: pointer;
+}
+button:disabled { opacity: 0.6; cursor: default; }
+button.secondary, .button.secondary { background: transparent; color: var(--fg); border-color: var(--line); }
+button.danger { background: transparent; color: var(--danger); border-color: var(--line); padding: 5px 10px; }
+
+.form { display: flex; flex-direction: column; gap: 14px; }
+.field { display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.field small { color: var(--muted); }
+input {
+  padding: 9px 11px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--input); color: var(--fg); font: inherit; min-width: 0;
+}
+input[aria-invalid='true'] { border-color: var(--bad); }
+.error, .field small.error { color: var(--bad); margin: 0; }
+
+.inline-form { display: flex; gap: 8px; margin: 16px 0 8px; }
+.inline-form input { flex: 1; }
+
+.key-box {
+  display: flex; flex-direction: column; gap: 8px; margin: 12px 0; padding: 12px;
+  border: 1px solid var(--ok); border-radius: 8px;
+}
+.key-box code { word-break: break-all; font-size: 14px; }
+.key-box button { align-self: flex-start; }
+
+table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 14px; }
+th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); }
+th { color: var(--muted); font-weight: 500; }
+td:last-child { text-align: right; }
+
+@media (max-width: 520px) {
+  .inline-form { flex-direction: column; }
+  th:nth-child(3), td:nth-child(3) { display: none; }
+}

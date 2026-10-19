@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 // Render on every request so the status is live, not frozen at build time.
 export const dynamic = 'force-dynamic';
 
@@ -21,6 +23,14 @@ export default async function Home() {
     <main>
       <h1>Support Agent</h1>
       <p>An AI support agent that answers from your docs and takes actions for your customers.</p>
+      <div className="actions">
+        <Link className="button" href="/signup">
+          Get started
+        </Link>
+        <Link className="button secondary" href="/login">
+          Log in
+        </Link>
+      </div>
       <div className="card">
         API status:{' '}
         {health ? (
