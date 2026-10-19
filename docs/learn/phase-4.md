@@ -80,6 +80,11 @@ Extracted first as a pure refactor, proven by the unchanged Phase 3 tests passin
 - Manual: a plain "Acme Shop" HTML page on `:5500` (allowed) answered from the docs with a source;
   the same page on `:5501` (not allowed) was blocked by the browser's CSP.
 
+- Live: the same test page loading `widget.js` from production answered from the docs on the
+  allowed origin; on the other origin Chrome blocked framing
+  `https://support-agent-cyan-chi.vercel.app/` per `frame-ancestors`. A direct API call claiming
+  another site got 403; an unknown key 404.
+
 ## Interview questions you can now answer
 
 - How do you let a third-party site embed your product safely?

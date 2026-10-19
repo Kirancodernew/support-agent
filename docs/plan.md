@@ -9,7 +9,7 @@ Phases 0–3 are enough for the resume; 4–7 make it stand out.
 | 1. Auth + workspaces | ✅ Done — live on Vercel + Railway |
 | 2. Doc ingestion | ✅ Done — live: upload → S3 → worker → Gemini → Atlas search |
 | 3. RAG chat | ✅ Done — live: streamed, cited answers; refusals; follow-ups |
-| 4. Embeddable widget | Built, verified locally on a separate-origin page; deploy pending |
+| 4. Embeddable widget | ✅ Done — live: answers on allowed sites, browser-blocked elsewhere |
 | 5. Agent tools | Not started |
 | 6. Dashboard | Not started |
 | 7. Polish | Not started |
