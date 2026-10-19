@@ -120,6 +120,14 @@ What the eval caught about itself: the first run reported a pass for a conversat
 reply failed with a Gemini **429 quota error** — the scorer only looked at tool names. Scoring now
 requires every turn to end with `done` and no `error`, and calls are spaced out for the free tier.
 
+## Verified live
+
+On production (Railway API → Vercel demo shop over the internet): an unsigned request to the shop
+got 401; the signed lookup returned order 1001 (which also proves both services share the secret);
+a wrong email got "not found". In chat: order 1001 looked up (✓ Checking order 1001…), "raise a
+ticket" produced a proposal and nothing else, "yes" created T-0001, which appeared in the Inbox with
+its 6-message transcript. First word ~3–4s when a tool runs (two model calls + webhook), ~2s without.
+
 ## Interview questions you can now answer
 
 - How does tool/function calling work? Who actually executes the tool?
