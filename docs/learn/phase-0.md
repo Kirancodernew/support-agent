@@ -108,3 +108,30 @@ failure on the old commit and passed on the fix.
 
 Lesson: **"works on my machine" often means "my machine has something the server
 doesn't."** Reproduce the server's install, not just its build.
+
+## Docker: how the API and worker are packaged
+
+Each of `apps/api` and `apps/worker` has a **multi-stage Dockerfile** (build context = repo root):
+
+1. **build stage** — copy only `package.json` files + lockfile, `npm ci` (with dev tools),
+   then copy source and run `tsup`. Copying manifests first means the slow `npm ci` layer
+   is cached until dependencies change, not on every code edit.
+2. **runtime stage** — fresh `node:22-alpine`, `npm ci --omit=dev` (no TypeScript, tsup,
+   pino-pretty), copy only `dist/` from the build stage, run as the non-root `node` user.
+
+Result: a small image with no build tools or source in it, and the same artifact runs on
+my Mac and on Railway.
+
+## Bug caught before deploy: "Dynamic require of "fs" is not supported"
+
+Both containers crashed at startup. `npm run dev` never showed it, because `tsx` runs the
+TypeScript source; only the **bundled** `dist/` was broken. tsup had bundled `dotenv` (a
+CommonJS library, used by our config package) into our ESM output, and its `require('fs')`
+can't run inside ESM.
+
+Fix: bundle only our own workspace code; keep every npm package external (the tsup config
+reads the config package's dependencies and marks them external). Bonus: the bundle went
+from 758 KB to 2.4 KB.
+
+Lesson: **test the artifact you ship** (`node dist/index.js`, or the Docker image), not just
+the dev server.

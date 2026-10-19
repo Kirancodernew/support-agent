@@ -10,7 +10,7 @@ Set these up one at a time. Paste every key into `.env` yourself (copy `.env.exa
 | 3 | Google Gemini API (free tier) | Phase 2 | `GEMINI_API_KEY` | ✅ key valid; chat + embeddings verified |
 | 4 | Redis Cloud (free 30 MB) | Phase 2 | `REDIS_CLOUD_URL` | ✅ connected, read/write ok, eviction `noeviction` |
 | 5 | AWS S3 bucket + IAM user | Phase 2 | `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_BUCKET` | ✅ put/get/delete ok; list denied (least privilege verified) |
-| 6 | Vercel | Phase 0 deploy | — (GitHub login) | ☐ sign up at the end of Phase 0 |
+| 6 | Vercel | Phase 0 deploy | — (GitHub login) | ✅ web live at support-agent-cyan-chi.vercel.app (root dir `apps/web`) |
 | 7 | Railway (or Render free) | Phase 0 deploy | — (GitHub login) | ☐ sign up at the end of Phase 0 |
 
 Local Redis runs in Docker, so Redis Cloud is only needed for the deploy.
@@ -129,5 +129,29 @@ inline policy's `Resource` named the wrong bucket (authorization failed).
 **Interview angle:** never use root keys in an app; least privilege (one user, one bucket,
 three actions); why the bucket stays private and the browser gets short-lived pre-signed
 URLs instead; what a zero-spend budget protects against.
+
+## 6. Vercel (web)
+
+Import the GitHub repo, set **Root Directory** to `apps/web`, keep the defaults, deploy.
+Env var: `API_URL` = the Railway API URL (no trailing slash).
+
+## 7. Railway (api + worker)
+
+Two services from the same repo, each built from its own Dockerfile.
+
+1. Sign in at https://railway.com with GitHub (**Kirancodernew**). Give the Railway GitHub
+   app access to only `support-agent`.
+2. **New Project → Deploy from GitHub repo → support-agent.** Rename the service to `api`.
+3. `api` → **Variables**: `RAILWAY_DOCKERFILE_PATH` = `apps/api/Dockerfile`.
+   Don't set `PORT` — Railway injects it and the API reads it.
+4. `api` → **Settings**: Healthcheck Path `/health`; Watch Paths `apps/api/**`,
+   `packages/**`, `package-lock.json`; **Networking → Generate Domain**.
+5. Project canvas → **+ Create → GitHub Repo → support-agent** again; rename it `worker`.
+6. `worker` → **Variables**: `RAILWAY_DOCKERFILE_PATH` = `apps/worker/Dockerfile`,
+   `REDIS_URL` = your Redis Cloud URL (paste it yourself). No domain — it takes no traffic.
+7. `worker` → **Settings**: Watch Paths `apps/worker/**`, `packages/**`, `package-lock.json`.
+
+**Interview angle:** why watch paths (a web-only change shouldn't redeploy the API), why the
+worker has no public URL, why the host health-checks `/health` before switching traffic.
 
 Remaining services get their steps here as we reach them.
