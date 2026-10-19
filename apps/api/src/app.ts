@@ -1,14 +1,17 @@
 import cookieParser from 'cookie-parser';
 import express, { type ErrorRequestHandler } from 'express';
 import { pinoHttp } from 'pino-http';
+import type { AppDeps } from './deps';
 import { HttpError } from './lib/http-error';
 import { logger } from './logger';
 import { apiKeysRouter } from './routes/api-keys';
 import { authRouter } from './routes/auth';
+import { documentsRouter } from './routes/documents';
+import { searchRouter } from './routes/search';
 
 const startedAt = Date.now();
 
-export function createApp() {
+export function createApp(deps: AppDeps) {
   const app = express();
   app.disable('x-powered-by');
   app.use(express.json({ limit: '1mb' }));
@@ -22,6 +25,8 @@ export function createApp() {
 
   app.use('/auth', authRouter);
   app.use('/api-keys', apiKeysRouter);
+  app.use('/documents', documentsRouter(deps));
+  app.use('/search', searchRouter(deps));
 
   app.use((_req, res) => {
     res.status(404).json({ error: 'not_found', message: 'Not found' });

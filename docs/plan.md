@@ -7,7 +7,7 @@ Phases 0–3 are enough for the resume; 4–7 make it stand out.
 |---|---|
 | 0. Setup | ✅ Done — web on Vercel, api + worker on Railway |
 | 1. Auth + workspaces | ✅ Done — live on Vercel + Railway |
-| 2. Doc ingestion | Not started |
+| 2. Doc ingestion | Built, verified locally with real S3/Gemini/Atlas; deploy pending |
 | 3. RAG chat | Not started |
 | 4. Embeddable widget | Not started |
 | 5. Agent tools | Not started |

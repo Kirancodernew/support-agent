@@ -26,3 +26,20 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 export type Me = { user: { id: string; email: string }; workspace: { id: string; name: string } };
 
 export type ApiKey = { id: string; name: string; prefix: string; createdAt: string; lastUsedAt: string | null };
+
+export type DocumentStatus = 'uploading' | 'queued' | 'processing' | 'ready' | 'failed';
+
+export type Doc = {
+  id: string;
+  filename: string;
+  size: number;
+  status: DocumentStatus;
+  error: string | null;
+  chunkCount: number;
+  createdAt: string;
+};
+
+export type SearchResult = { documentId: string; filename: string; position: number; text: string; score: number };
+
+/** Reports an API error to the user, or sends them to log in if the session is gone. */
+export type ErrorHandler = (err: unknown) => void;

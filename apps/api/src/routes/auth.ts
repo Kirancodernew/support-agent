@@ -1,13 +1,11 @@
 import { Router } from 'express';
-import mongoose from 'mongoose';
 import { z } from '@support-agent/config';
+import { runInTransaction, UserModel, WorkspaceModel } from '@support-agent/db';
 import { DUMMY_HASH, hashPassword, verifyPassword } from '../auth/password';
 import { getAuth, requireAuth } from '../auth/require-auth';
 import { clearSessionCookie, setSessionCookie } from '../auth/session';
 import { HttpError } from '../lib/http-error';
 import { parseBody } from '../lib/validate';
-import { UserModel } from '../models/user';
-import { WorkspaceModel } from '../models/workspace';
 
 const email = z.string().trim().toLowerCase().pipe(z.email('Enter a valid email').max(254));
 
@@ -45,7 +43,7 @@ authRouter.post('/signup', async (req, res) => {
   let created: ReturnType<typeof toPublic> | undefined;
   let session: { userId: string; workspaceId: string } | undefined;
   try {
-    await mongoose.connection.transaction(async (tx) => {
+    await runInTransaction(async (tx) => {
       const workspace = await new WorkspaceModel({ name: body.workspaceName }).save({ session: tx });
       const user = await new UserModel({ email: body.email, passwordHash, workspaceId: workspace._id }).save({
         session: tx,

@@ -1,5 +1,8 @@
+import { connectDb, createAtlasRetriever, disconnectDb, ensureVectorIndex } from '@support-agent/db';
+import { createLlm, EMBEDDING_DIMENSIONS } from '@support-agent/llm';
+import { createIngestQueue, createRedis } from '@support-agent/queue';
+import { createS3Storage } from '@support-agent/storage';
 import { createApp } from './app';
-import { connectDb, disconnectDb } from './db';
 import { env } from './env';
 import { logger } from './logger';
 
@@ -12,7 +15,27 @@ try {
   process.exit(1);
 }
 
-const server = createApp().listen(env.PORT, () => {
+// Idempotent: creates the Atlas vector index on first boot, no-op afterwards.
+await ensureVectorIndex(EMBEDDING_DIMENSIONS)
+  .then((result) => logger.info({ result }, 'vector index checked'))
+  .catch((err: unknown) => logger.warn({ err }, 'could not ensure vector index; search will fail until it exists'));
+
+const redis = createRedis(env.REDIS_URL);
+const ingestQueue = createIngestQueue(redis);
+
+const app = createApp({
+  storage: createS3Storage({
+    region: env.AWS_REGION,
+    bucket: env.S3_BUCKET,
+    accessKeyId: env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
+  }),
+  ingestQueue,
+  llm: createLlm({ provider: env.LLM_PROVIDER, apiKey: env.GEMINI_API_KEY, embedModel: env.GEMINI_EMBED_MODEL }),
+  retriever: createAtlasRetriever(),
+});
+
+const server = app.listen(env.PORT, () => {
   logger.info(`api listening on http://localhost:${env.PORT}`);
 });
 
@@ -20,7 +43,9 @@ const server = createApp().listen(env.PORT, () => {
 function shutdown(signal: string) {
   logger.info({ signal }, 'shutting down');
   server.close(() => {
-    void disconnectDb().finally(() => process.exit(0));
+    void Promise.allSettled([ingestQueue.close(), disconnectDb()])
+      .then(() => redis.quit())
+      .finally(() => process.exit(0));
   });
   setTimeout(() => process.exit(1), 10_000).unref();
 }

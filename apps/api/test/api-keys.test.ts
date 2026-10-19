@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { hashApiKey } from '../src/lib/api-key';
-import { ApiKeyModel } from '../src/models/api-key';
+import { ApiKeyModel } from '@support-agent/db';
 import { app, signedUpBrowser, useTestDb } from './helpers';
 
 useTestDb();

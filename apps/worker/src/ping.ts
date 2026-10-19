@@ -1,11 +1,12 @@
 // Dev check: enqueue a ping job and wait for the running worker to answer.
 import { Queue, QueueEvents } from 'bullmq';
-import { createRedis, QUEUES, type PingJob, type PingResult } from './queues';
+import { createRedis, QUEUES, type PingJob, type PingResult } from '@support-agent/queue';
+import { env } from './env';
 
 // QueueEvents blocks on Redis while listening, so it needs its own connection.
 // BullMQ never closes connections it was handed, so we close both ourselves.
-const queueConn = createRedis();
-const eventsConn = createRedis();
+const queueConn = createRedis(env.REDIS_URL);
+const eventsConn = createRedis(env.REDIS_URL);
 const queue = new Queue<PingJob, PingResult>(QUEUES.system, { connection: queueConn });
 const events = new QueueEvents(QUEUES.system, { connection: eventsConn });
 

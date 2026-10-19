@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
-import { UserModel } from '../src/models/user';
+import { UserModel } from '@support-agent/db';
 import { app, browser, signedUpBrowser, useTestDb } from './helpers';
 
 useTestDb();

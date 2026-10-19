@@ -1,6 +1,6 @@
 import type { CookieOptions, Response } from 'express';
 import jwt from 'jsonwebtoken';
-import { isValidObjectId } from 'mongoose';
+import { isValidObjectId } from '@support-agent/db';
 import { env } from '../env';
 
 export const SESSION_COOKIE = 'sa_session';
@@ -36,7 +36,7 @@ export function verifySession(token: string): Session | null {
     if (typeof payload === 'string') return null;
     const { sub, wid } = payload;
     // Ids must be real ObjectIds, or later lookups would throw (500) instead of rejecting (401).
-    if (typeof sub !== 'string' || typeof wid !== 'string' || !isValidObjectId(sub) || !isValidObjectId(wid)) {
+    if (!isValidObjectId(sub) || !isValidObjectId(wid)) {
       return null;
     }
     return { userId: sub, workspaceId: wid };

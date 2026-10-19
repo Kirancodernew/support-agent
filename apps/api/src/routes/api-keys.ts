@@ -1,11 +1,10 @@
 import { Router } from 'express';
-import { isValidObjectId } from 'mongoose';
 import { z } from '@support-agent/config';
+import { ApiKeyModel, isValidObjectId } from '@support-agent/db';
 import { getAuth, requireAuth } from '../auth/require-auth';
 import { generateApiKey } from '../lib/api-key';
 import { HttpError } from '../lib/http-error';
 import { parseBody } from '../lib/validate';
-import { ApiKeyModel } from '../models/api-key';
 
 const MAX_ACTIVE_KEYS = 10;
 

@@ -9,9 +9,13 @@ COPY apps/api/package.json apps/api/
 COPY apps/worker/package.json apps/worker/
 COPY apps/web/package.json apps/web/
 COPY packages/config/package.json packages/config/
+COPY packages/db/package.json packages/db/
+COPY packages/llm/package.json packages/llm/
+COPY packages/queue/package.json packages/queue/
+COPY packages/storage/package.json packages/storage/
 RUN npm ci -w @support-agent/worker --include-workspace-root=false
 COPY tsconfig.base.json ./
-COPY packages/config packages/config
+COPY packages packages
 COPY apps/worker apps/worker
 RUN npm run build -w @support-agent/worker
 
@@ -24,6 +28,10 @@ COPY apps/api/package.json apps/api/
 COPY apps/worker/package.json apps/worker/
 COPY apps/web/package.json apps/web/
 COPY packages/config/package.json packages/config/
+COPY packages/db/package.json packages/db/
+COPY packages/llm/package.json packages/llm/
+COPY packages/queue/package.json packages/queue/
+COPY packages/storage/package.json packages/storage/
 RUN npm ci -w @support-agent/worker --include-workspace-root=false --omit=dev && npm cache clean --force
 COPY --from=build /app/apps/worker/dist apps/worker/dist
 # Don't run as root inside the container.
