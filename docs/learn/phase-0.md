@@ -93,3 +93,18 @@ something hangs.
 - Why does BullMQ need `maxRetriesPerRequest: null` and `noeviction`?
 - Monorepo vs separate repos — when would you pick each?
 - What does bundling do, and why keep npm packages external on a server?
+
+## Deploy bug: "you're trying to use TypeScript but do not have the required package(s)"
+
+The first Vercel build failed. `typescript` and `@types/node` were listed only in the
+**root** `package.json`. Locally that worked, because a full install puts everything in the
+root `node_modules`. Vercel installs **only the app being deployed** (`apps/web`), so the
+root-only tools were missing.
+
+Fix: each app lists every tool it uses in its own `devDependencies` (web: `typescript`,
+`@types/node`; api/worker: also `tsx`, `tsup`). Verified by simulating the host — clean
+copy, `npm ci -w <app> --include-workspace-root=false`, then build — which reproduced the
+failure on the old commit and passed on the fix.
+
+Lesson: **"works on my machine" often means "my machine has something the server
+doesn't."** Reproduce the server's install, not just its build.
