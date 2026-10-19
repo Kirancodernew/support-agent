@@ -14,3 +14,11 @@ export function generateApiKey() {
 export function hashApiKey(key: string) {
   return createHash('sha256').update(key).digest('hex');
 }
+
+/**
+ * Public key for the website widget. Not a secret (it's in the page source), so it's stored as-is
+ * and can only start widget chats for its own workspace.
+ */
+export function generatePublishableKey() {
+  return 'pk_live_' + randomBytes(18).toString('base64url');
+}

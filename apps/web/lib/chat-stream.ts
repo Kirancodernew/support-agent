@@ -13,8 +13,13 @@ type Handlers = {
  * Sends a chat message and reads the answer as Server-Sent Events while it streams.
  * (The browser's EventSource only does GET, so this parses the stream from fetch by hand.)
  */
-export async function streamChat(body: { message: string; conversationId?: string }, handlers: Handlers, signal?: AbortSignal) {
-  const res = await fetch('/api/chat', {
+export async function streamChat(
+  body: { message: string; conversationId?: string } & Record<string, unknown>,
+  handlers: Handlers,
+  signal?: AbortSignal,
+  endpoint = '/api/chat',
+) {
+  const res = await fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),

@@ -31,6 +31,10 @@ const conversationSchema = new Schema(
   {
     workspaceId: { type: Schema.Types.ObjectId, ref: 'Workspace', required: true },
     title: { type: String, required: true, maxlength: 80 },
+    // Where the chat happened: the owner testing on the dashboard, or a visitor on their website.
+    channel: { type: String, enum: ['dashboard', 'widget'], default: 'dashboard' },
+    // Anonymous id the widget keeps per browser, so a visitor only ever sees their own chats.
+    visitorId: { type: String },
     // Embedded: a conversation is always read whole, and is capped at 50 messages.
     messages: { type: [messageSchema], default: [] },
   },
@@ -38,5 +42,6 @@ const conversationSchema = new Schema(
 );
 
 conversationSchema.index({ workspaceId: 1, updatedAt: -1 });
+conversationSchema.index({ workspaceId: 1, visitorId: 1, updatedAt: -1 }, { sparse: true });
 
 export const ConversationModel = model('Conversation', conversationSchema);

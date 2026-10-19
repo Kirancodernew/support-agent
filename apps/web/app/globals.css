@@ -85,3 +85,22 @@ button.link { background: none; border: 0; padding: 0; color: var(--accent); fon
 .bubble small { display: block; margin-top: 6px; }
 .sources { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .chip { font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+
+/* Widget (inside the customer's iframe) */
+.widget { display: flex; flex-direction: column; height: 100vh; background: var(--card); }
+.widget-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.widget-close { background: none; color: var(--fg); border: 0; font-size: 22px; line-height: 1; padding: 0 4px; }
+.widget-messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 12px; }
+.widget-messages .bubble { max-width: 90%; }
+.widget-input { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--line); }
+.widget-input input { flex: 1; }
+.widget-error { padding: 16px; color: var(--muted); }
+
+h3 { margin: 20px 0 4px; font-size: 15px; }
+textarea {
+  padding: 9px 11px; border-radius: 8px; border: 1px solid var(--line); background: var(--input);
+  color: var(--fg); font: inherit; font-size: 14px; resize: vertical; width: 100%;
+}
+textarea[aria-invalid='true'] { border-color: var(--bad); }
+.key-box .actions { margin-top: 0; }
+.widget-preview { width: 100%; max-width: 380px; height: 480px; border: 1px solid var(--line); border-radius: 14px; display: block; }

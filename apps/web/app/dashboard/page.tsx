@@ -6,6 +6,7 @@ import { ApiKeysPanel } from '@/components/api-keys-panel';
 import { ChatPanel } from '@/components/chat-panel';
 import { DocumentsPanel } from '@/components/documents-panel';
 import { SearchPanel } from '@/components/search-panel';
+import { WidgetPanel } from '@/components/widget-panel';
 import { api, ApiError, type Me } from '@/lib/api';
 
 export default function DashboardPage() {
@@ -59,6 +60,7 @@ export default function DashboardPage() {
       <ChatPanel onError={onError} />
       <DocumentsPanel onError={onError} />
       <SearchPanel onError={onError} />
+      <WidgetPanel onError={onError} />
       <ApiKeysPanel onError={onError} />
     </main>
   );
