@@ -135,3 +135,23 @@ from 758 KB to 2.4 KB.
 
 Lesson: **test the artifact you ship** (`node dist/index.js`, or the Docker image), not just
 the dev server.
+
+## Deploy: what's live and the gotchas we hit
+
+| Piece | Host | URL / check |
+|---|---|---|
+| web | Vercel (root dir `apps/web`) | https://support-agent-cyan-chi.vercel.app — shows "● online" |
+| api | Railway (Dockerfile) | https://support-agentapi-production.up.railway.app/health |
+| worker | Railway (Dockerfile, no public URL) | `REDIS_URL=<cloud url> npm run ping -w @support-agent/worker` |
+
+1. **Redeploy rebuilds the same commit.** Vercel's "Redeploy" reused the old, broken commit;
+   the fixed commit had already deployed fine. Check *which commit* a failed build used.
+2. **Railway guessed the build.** It auto-detected the monorepo and ran `npm start` with its
+   own builder, ignoring our Dockerfile. Tell-tale sign: `npm warn` lines in the deploy log.
+   Fix: `RAILWAY_DOCKERFILE_PATH` + clear the custom build/start commands.
+3. **Worker crashed: `REDIS_URL ... received undefined`.** The env check from Phase 0 caught
+   the missing variable at boot, with a clear message, instead of failing on the first job.
+4. **New env var, page unchanged.** A deployment is a snapshot of code *and* settings, so
+   `API_URL` only applied after a redeploy. That snapshot is also what makes rollback safe.
+5. **Region matters.** Railway defaulted to US East while Redis Cloud is in Asia, so every
+   queue call crossed the world (~350–575 ms ping). Keep compute next to its data.

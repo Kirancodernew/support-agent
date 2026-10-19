@@ -11,7 +11,7 @@ Set these up one at a time. Paste every key into `.env` yourself (copy `.env.exa
 | 4 | Redis Cloud (free 30 MB) | Phase 2 | `REDIS_CLOUD_URL` | ✅ connected, read/write ok, eviction `noeviction` |
 | 5 | AWS S3 bucket + IAM user | Phase 2 | `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_BUCKET` | ✅ put/get/delete ok; list denied (least privilege verified) |
 | 6 | Vercel | Phase 0 deploy | — (GitHub login) | ✅ web live at support-agent-cyan-chi.vercel.app (root dir `apps/web`) |
-| 7 | Railway (or Render free) | Phase 0 deploy | — (GitHub login) | ☐ sign up at the end of Phase 0 |
+| 7 | Railway | Phase 0 deploy | `REDIS_URL` (worker), `RAILWAY_DOCKERFILE_PATH` (both) | ✅ api live at support-agentapi-production.up.railway.app; worker answers pings via Redis Cloud |
 
 Local Redis runs in Docker, so Redis Cloud is only needed for the deploy.
 
@@ -133,7 +133,9 @@ URLs instead; what a zero-spend budget protects against.
 ## 6. Vercel (web)
 
 Import the GitHub repo, set **Root Directory** to `apps/web`, keep the defaults, deploy.
-Env var: `API_URL` = the Railway API URL (no trailing slash).
+Env var: `API_URL` = the Railway API URL (no trailing slash), set under
+**Settings → Environments → Production → Environment Variables**. Then **Redeploy**:
+a deployment keeps the variables it was built with, so a new variable needs a new deploy.
 
 ## 7. Railway (api + worker)
 
@@ -141,8 +143,12 @@ Two services from the same repo, each built from its own Dockerfile.
 
 1. Sign in at https://railway.com with GitHub (**Kirancodernew**). Give the Railway GitHub
    app access to only `support-agent`.
-2. **New Project → Deploy from GitHub repo → support-agent.** Rename the service to `api`.
-3. `api` → **Variables**: `RAILWAY_DOCKERFILE_PATH` = `apps/api/Dockerfile`.
+2. **New Project → Deploy from GitHub repo → support-agent.** Railway auto-detects the
+   monorepo and creates one service per app; delete the `web` one (Vercel hosts it).
+3. `api` → **Variables**: `RAILWAY_DOCKERFILE_PATH` = `apps/api/Dockerfile`. In **Settings**,
+   clear Root Directory, Custom Build Command and Custom Start Command — the auto-detected
+   values bypass the Dockerfile (the log shows `npm warn` / `npm error` lines when they do).
+   Region: Southeast Asia (Singapore), near Redis Cloud and Indian users.
    Don't set `PORT` — Railway injects it and the API reads it.
 4. `api` → **Settings**: Healthcheck Path `/health`; Watch Paths `apps/api/**`,
    `packages/**`, `package-lock.json`; **Networking → Generate Domain**.

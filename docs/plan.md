@@ -5,7 +5,7 @@ Phases 0–3 are enough for the resume; 4–7 make it stand out.
 
 | Phase | Status |
 |---|---|
-| 0. Setup | Built and verified locally; deploy pending |
+| 0. Setup | ✅ Done — web on Vercel, api + worker on Railway |
 | 1. Auth + workspaces | Not started |
 | 2. Doc ingestion | Not started |
 | 3. RAG chat | Not started |
