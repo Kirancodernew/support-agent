@@ -8,7 +8,9 @@ export const env = loadEnv(
     MONGODB_URI: z.string().startsWith('mongodb'),
     // Signs session tokens. Anyone with it can forge a login, so it must be long and random.
     JWT_SECRET: z.string().min(32, 'must be at least 32 characters (openssl rand -hex 32)'),
-    REDIS_URL: z.string().startsWith('redis'),
+    // Parsed as a real URL so a stray quote or typo fails here with a clear message, instead of
+    // inside ioredis, whose error prints the whole URL (password included) into the logs.
+    REDIS_URL: z.url({ protocol: /^rediss?$/, error: 'must be a valid redis:// URL' }),
     AWS_REGION: z.string().min(1),
     AWS_ACCESS_KEY_ID: z.string().min(1),
     AWS_SECRET_ACCESS_KEY: z.string().min(1),

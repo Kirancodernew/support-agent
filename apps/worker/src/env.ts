@@ -4,7 +4,9 @@ export const env = loadEnv(
   z.object({
     NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
     LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
-    REDIS_URL: z.string().startsWith('redis'),
+    // Parsed as a real URL so a stray quote or typo fails here with a clear message, instead of
+    // inside ioredis, whose error prints the whole URL (password included) into the logs.
+    REDIS_URL: z.url({ protocol: /^rediss?$/, error: 'must be a valid redis:// URL' }),
     MONGODB_URI: z.string().startsWith('mongodb'),
     AWS_REGION: z.string().min(1),
     AWS_ACCESS_KEY_ID: z.string().min(1),
