@@ -6,6 +6,7 @@ import { HttpError } from './lib/http-error';
 import { logger } from './logger';
 import { apiKeysRouter } from './routes/api-keys';
 import { authRouter } from './routes/auth';
+import { chatRouter } from './routes/chat';
 import { documentsRouter } from './routes/documents';
 import { searchRouter } from './routes/search';
 
@@ -27,6 +28,7 @@ export function createApp(deps: AppDeps) {
   app.use('/api-keys', apiKeysRouter);
   app.use('/documents', documentsRouter(deps));
   app.use('/search', searchRouter(deps));
+  app.use('/chat', chatRouter(deps));
 
   app.use((_req, res) => {
     res.status(404).json({ error: 'not_found', message: 'Not found' });

@@ -15,5 +15,6 @@ export const env = loadEnv(
     LLM_PROVIDER: z.enum(['gemini']).default('gemini'),
     GEMINI_API_KEY: z.string().min(1),
     GEMINI_EMBED_MODEL: z.string().default('gemini-embedding-001'),
+    GEMINI_CHAT_MODEL: z.string().default('gemini-3.5-flash-lite'),
   }),
 );

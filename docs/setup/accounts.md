@@ -60,7 +60,7 @@ the free tier Google may use prompts to improve its products, so only demo data 
 
 | Setting | Value | Why |
 |---|---|---|
-| Chat model | `gemini-3.8-flash` | Older models (`gemini-2.5-flash` etc.) return 404 "no longer available to new users". |
+| Chat model | `gemini-3.5-flash-lite` | Fastest that works: ~0.8s to first word on a real support prompt vs ~3.5s for `gemini-3.8-flash`. Older models (`gemini-2.5-flash`) return 404 for new users. |
 | Thinking level | `low` | Default thinking took ~40s for a one-word reply; `low` took ~9s. `minimal` isn't supported on this model. Phase 3 measures real latency. |
 | Embedding model | `gemini-embedding-001`, `outputDimensionality: 768` | 768 dims keeps vectors small for Atlas M0; must match the vector index dims. |
 | Errors | Instant empty-body 404s after ~10 rapid calls | Free-tier throttling. The `llm` layer retries with backoff and surfaces a clear error. |

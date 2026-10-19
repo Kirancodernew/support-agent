@@ -74,3 +74,14 @@ button.link { background: none; border: 0; padding: 0; color: var(--accent); fon
 .results { margin: 12px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 12px; }
 .results p { margin: 4px 0 0; color: var(--fg); white-space: pre-wrap; font-size: 14px; }
 .result-meta { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
+
+.chat { display: flex; flex-direction: column; gap: 10px; margin: 12px 0; max-height: 460px; overflow-y: auto; padding-right: 4px; }
+.bubble { max-width: 85%; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); }
+.bubble p { margin: 0; color: var(--fg); white-space: pre-wrap; line-height: 1.5; }
+.bubble.user { align-self: flex-end; background: var(--accent); border-color: var(--accent); }
+.bubble.user p { color: var(--accent-fg); }
+.bubble.assistant { align-self: flex-start; }
+.bubble.failed { border-color: var(--bad); }
+.bubble small { display: block; margin-top: 6px; }
+.sources { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.chip { font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }

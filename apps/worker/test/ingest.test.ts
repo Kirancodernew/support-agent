@@ -27,7 +27,11 @@ const storage: Storage = {
   download: async (k) => files.get(k) ?? new Uint8Array(),
   remove: async (k) => void files.delete(k),
 };
-const llm: Llm = { embed: async (texts) => texts.map((t) => [t.length, 1, 0]) };
+// The ingest job only embeds; it never generates text.
+const llm: Llm = {
+  embed: async (texts) => texts.map((t) => [t.length, 1, 0]),
+  generateStream: async function* () {},
+};
 
 async function uploadedDoc(text: string) {
   const doc = await DocumentModel.create({
@@ -76,6 +80,7 @@ describe('ingest job', () => {
   it('leaves no chunks behind if the document is deleted while processing', async () => {
     const doc = await uploadedDoc(longText);
     const deletingLlm: Llm = {
+      ...llm,
       embed: async (texts) => {
         await DocumentModel.deleteOne({ _id: doc._id }); // user clicks delete mid-way
         return llm.embed(texts, 'document');

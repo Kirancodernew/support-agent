@@ -56,7 +56,12 @@ const ingestWorker = new Worker<IngestJob, IngestResult>(
   QUEUES.ingest,
   createIngestProcessor({
     storage,
-    llm: createLlm({ provider: env.LLM_PROVIDER, apiKey: env.GEMINI_API_KEY, embedModel: env.GEMINI_EMBED_MODEL }),
+    llm: createLlm({
+      provider: env.LLM_PROVIDER,
+      apiKey: env.GEMINI_API_KEY,
+      embedModel: env.GEMINI_EMBED_MODEL,
+      chatModel: env.GEMINI_CHAT_MODEL,
+    }),
   }),
   // One document at a time keeps us inside Gemini's free-tier rate limits.
   { connection: ingestConn, concurrency: 1 },

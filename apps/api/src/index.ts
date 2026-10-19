@@ -3,6 +3,7 @@ import { createLlm, EMBEDDING_DIMENSIONS } from '@support-agent/llm';
 import { createIngestQueue, createRedis } from '@support-agent/queue';
 import { createS3Storage } from '@support-agent/storage';
 import { createApp } from './app';
+import { createRedisRateLimiter } from './lib/rate-limit';
 import { env } from './env';
 import { logger } from './logger';
 
@@ -31,8 +32,15 @@ const app = createApp({
     secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
   }),
   ingestQueue,
-  llm: createLlm({ provider: env.LLM_PROVIDER, apiKey: env.GEMINI_API_KEY, embedModel: env.GEMINI_EMBED_MODEL }),
+  llm: createLlm({
+    provider: env.LLM_PROVIDER,
+    apiKey: env.GEMINI_API_KEY,
+    embedModel: env.GEMINI_EMBED_MODEL,
+    chatModel: env.GEMINI_CHAT_MODEL,
+  }),
   retriever: createAtlasRetriever(),
+  rateLimiter: createRedisRateLimiter(redis),
+  chat: { minScore: env.CHAT_MIN_SCORE },
 });
 
 const server = app.listen(env.PORT, () => {

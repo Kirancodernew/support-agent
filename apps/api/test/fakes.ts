@@ -1,8 +1,9 @@
 import { ChunkModel, type Retriever } from '@support-agent/db';
-import type { Llm } from '@support-agent/llm';
+import type { GenerateRequest, Llm } from '@support-agent/llm';
 import type { IngestQueue } from '@support-agent/queue';
 import type { Storage } from '@support-agent/storage';
 import type { AppDeps } from '../src/deps';
+import type { RateLimiter } from '../src/lib/rate-limit';
 
 /** Word-count "embedding": texts sharing words get similar vectors. Enough to test ranking. */
 export function fakeEmbed(text: string): number[] {
@@ -43,7 +44,28 @@ export function createFakes() {
       enqueued.push(documentId);
     },
   };
-  const llm: Llm = { embed: async (texts) => texts.map(fakeEmbed) };
+  // The fake model "answers" with fixed pieces and records every request, so tests can check
+  // what the prompt contained. Set `fail` to make it break after the first piece.
+  const generated: GenerateRequest[] = [];
+  const model = { pieces: ['Standard shipping ', 'takes 3 to 5 days [1].'], fail: false };
+  const llm: Llm = {
+    embed: async (texts) => texts.map(fakeEmbed),
+    async *generateStream(request) {
+      generated.push(request);
+      for (const [i, piece] of model.pieces.entries()) {
+        if (model.fail && i === 1) throw new Error('model exploded');
+        yield piece;
+      }
+    },
+  };
+  const hits = new Map<string, number>();
+  const rateLimiter: RateLimiter = {
+    hit: async (key, limit) => {
+      const count = (hits.get(key) ?? 0) + 1;
+      hits.set(key, count);
+      return { allowed: count <= limit, retryAfterSeconds: 42 };
+    },
+  };
   // Same contract as the Atlas retriever, including the workspace filter.
   const retriever: Retriever = {
     search: async (workspaceId, vector, limit) => {
@@ -55,14 +77,20 @@ export function createFakes() {
     },
   };
 
-  const deps: AppDeps = { storage, ingestQueue, llm, retriever };
+  // Fake vectors are word counts, so related texts score lower than real embeddings would.
+  const deps: AppDeps = { storage, ingestQueue, llm, retriever, rateLimiter, chat: { minScore: 0.3 } };
   return {
     deps,
     files,
     enqueued,
+    generated,
+    model,
     reset() {
       files.clear();
       enqueued.length = 0;
+      generated.length = 0;
+      hits.clear();
+      model.fail = false;
     },
   };
 }

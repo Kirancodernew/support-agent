@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { ApiKeysPanel } from '@/components/api-keys-panel';
+import { ChatPanel } from '@/components/chat-panel';
 import { DocumentsPanel } from '@/components/documents-panel';
 import { SearchPanel } from '@/components/search-panel';
 import { api, ApiError, type Me } from '@/lib/api';
@@ -55,6 +56,7 @@ export default function DashboardPage() {
         </p>
       )}
 
+      <ChatPanel onError={onError} />
       <DocumentsPanel onError={onError} />
       <SearchPanel onError={onError} />
       <ApiKeysPanel onError={onError} />

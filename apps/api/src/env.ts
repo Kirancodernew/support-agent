@@ -18,5 +18,9 @@ export const env = loadEnv(
     LLM_PROVIDER: z.enum(['gemini']).default('gemini'),
     GEMINI_API_KEY: z.string().min(1),
     GEMINI_EMBED_MODEL: z.string().default('gemini-embedding-001'),
+    // Pinned (not a "-latest" alias) so the model only changes when we change it.
+    GEMINI_CHAT_MODEL: z.string().default('gemini-3.5-flash-lite'),
+    // Atlas scores are 0–1 (higher = closer). Below this, a passage is treated as unrelated.
+    CHAT_MIN_SCORE: z.coerce.number().min(0).max(1).default(0.75),
   }),
 );

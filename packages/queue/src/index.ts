@@ -1,6 +1,8 @@
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
 
+export type { Redis };
+
 // Queue names and job shapes live in one place so producers (API) and consumers (worker) can't drift.
 export const QUEUES = { system: 'system', ingest: 'ingest' } as const;
 
