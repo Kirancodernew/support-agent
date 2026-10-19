@@ -85,6 +85,18 @@ proxy included).
 4. **Score threshold can't separate relevant from irrelevant** (see above) — documented, with
    the prompt as the real guard.
 
+5. **"Ready" document, but the chat said "I don't know".** Found on the live site: the first
+   question right after a document turned Ready got no sources. Atlas indexes new chunks a few
+   seconds after they're written (eventual consistency). Fix: `documentId` became a filter field
+   in the vector index (updated in place by `ensureVectorIndex`, still queryable while it
+   rebuilt), and the worker keeps the document "processing" until a vector search filtered to it
+   finds its chunks (up to 60s, then ready anyway). Verified: processing ~15s → ready → the
+   immediate question was answered with its source. Lesson: **a status shown to users must mean
+   what they think it means.**
+
+Live latency (browser, through Vercel → Railway → Atlas/Gemini): ~2.0–2.6s to first word, of
+which ~0.7s is the model. The rest is the extra network hops; Phase 7 measures and trims it.
+
 ## Interview questions you can now answer
 
 - What is RAG and why use it instead of fine-tuning?
@@ -96,3 +108,4 @@ proxy included).
 - What is prompt injection, and how do you defend a RAG system against it?
 - Fixed-window vs sliding-window rate limiting?
 - How did you find and fix a latency problem?
+- What is eventual consistency, and how did it show up here?

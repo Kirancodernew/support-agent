@@ -33,6 +33,9 @@ const llm: Llm = {
   generateStream: async function* () {},
 };
 
+// The in-memory MongoDB has no vector search; by default treat chunks as instantly searchable.
+const isSearchable = async () => true;
+
 async function uploadedDoc(text: string) {
   const doc = await DocumentModel.create({
     workspaceId: new mongoose.Types.ObjectId(),
@@ -51,7 +54,7 @@ const longText = Array.from({ length: 60 }, (_, i) => `Fact ${i}: the product do
 describe('ingest job', () => {
   it('turns a document into embedded chunks and marks it ready', async () => {
     const doc = await uploadedDoc(longText);
-    const result = await createIngestProcessor({ storage, llm })({ data: { documentId: String(doc._id) } });
+    const result = await createIngestProcessor({ storage, llm, isSearchable })({ data: { documentId: String(doc._id) } });
 
     const chunks = await ChunkModel.find({ documentId: doc._id }).sort({ position: 1 }).lean();
     expect(result).toEqual({ chunks: chunks.length });
@@ -64,9 +67,33 @@ describe('ingest job', () => {
     expect(after).toMatchObject({ status: 'ready', chunkCount: chunks.length, error: null });
   });
 
+  it('stays "processing" until search can find the chunks, then turns ready', async () => {
+    const doc = await uploadedDoc(longText);
+    let checks = 0;
+    const statusesSeen: string[] = [];
+    const slowIndex = async () => {
+      statusesSeen.push((await DocumentModel.findById(doc._id))!.status);
+      return ++checks >= 3; // searchable on the third check
+    };
+    await createIngestProcessor({ storage, llm, isSearchable: slowIndex })({ data: { documentId: String(doc._id) } });
+
+    expect(checks).toBe(3);
+    expect(statusesSeen).toEqual(['processing', 'processing', 'processing']);
+    expect((await DocumentModel.findById(doc._id))!.status).toBe('ready');
+  });
+
+  it('marks ready anyway if the index is slower than the timeout', async () => {
+    const doc = await uploadedDoc(longText);
+    const neverSearchable = async () => false;
+    await createIngestProcessor({ storage, llm, isSearchable: neverSearchable, searchableTimeoutMs: 1 })({
+      data: { documentId: String(doc._id) },
+    });
+    expect((await DocumentModel.findById(doc._id))!.status).toBe('ready');
+  });
+
   it('is safe to run twice: a retry replaces chunks instead of duplicating them', async () => {
     const doc = await uploadedDoc(longText);
-    const process = createIngestProcessor({ storage, llm });
+    const process = createIngestProcessor({ storage, llm, isSearchable });
     const first = await process({ data: { documentId: String(doc._id) } });
     await process({ data: { documentId: String(doc._id) } });
     expect(await ChunkModel.countDocuments({ documentId: doc._id })).toBe((first as { chunks: number }).chunks);
@@ -74,7 +101,7 @@ describe('ingest job', () => {
 
   it('skips a document deleted before the job ran', async () => {
     const id = String(new mongoose.Types.ObjectId());
-    expect(await createIngestProcessor({ storage, llm })({ data: { documentId: id } })).toEqual({ skipped: 'deleted' });
+    expect(await createIngestProcessor({ storage, llm, isSearchable })({ data: { documentId: id } })).toEqual({ skipped: 'deleted' });
   });
 
   it('leaves no chunks behind if the document is deleted while processing', async () => {
@@ -86,14 +113,14 @@ describe('ingest job', () => {
         return llm.embed(texts, 'document');
       },
     };
-    const result = await createIngestProcessor({ storage, llm: deletingLlm })({ data: { documentId: String(doc._id) } });
+    const result = await createIngestProcessor({ storage, llm: deletingLlm, isSearchable })({ data: { documentId: String(doc._id) } });
     expect(result).toEqual({ skipped: 'deleted' });
     expect(await ChunkModel.countDocuments({ documentId: doc._id })).toBe(0);
   });
 
   it('fails permanently, with a readable reason, when there is no text', async () => {
     const doc = await uploadedDoc('   \n\n  ');
-    const err = await createIngestProcessor({ storage, llm })({ data: { documentId: String(doc._id) } }).catch((e) => e);
+    const err = await createIngestProcessor({ storage, llm, isSearchable })({ data: { documentId: String(doc._id) } }).catch((e) => e);
     expect(err).toBeInstanceOf(UnrecoverableError);
     expect(isFinalFailure({ attemptsMade: 1, opts: { attempts: 3 } }, err)).toBe(true);
     expect(failureMessage(err)).toMatch(/No text found/);

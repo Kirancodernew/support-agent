@@ -9,11 +9,20 @@ import { extractText } from './extract';
 // ~400 chunks ≈ 400k characters ≈ a 150-page document. Keeps free-tier embedding usage sane.
 export const MAX_CHUNKS = 400;
 
-export type IngestDeps = { storage: Storage; llm: Llm };
+export type IngestDeps = {
+  storage: Storage;
+  llm: Llm;
+  /** Can search already find this document? (Atlas indexes new chunks a few seconds after saving.) */
+  isSearchable: (documentId: string, vector: number[]) => Promise<boolean>;
+  /** How long to wait for that before marking ready anyway. */
+  searchableTimeoutMs?: number;
+};
 export type IngestResult = { chunks: number } | { skipped: 'deleted' };
 
 /** download → extract → chunk → embed → save. Safe to run more than once for the same document. */
-export function createIngestProcessor({ storage, llm }: IngestDeps) {
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+export function createIngestProcessor({ storage, llm, isSearchable, searchableTimeoutMs = 60_000 }: IngestDeps) {
   return async (job: Pick<Job<IngestJob>, 'data'>): Promise<IngestResult> => {
     const doc = await DocumentModel.findById(job.data.documentId);
     if (!doc) return { skipped: 'deleted' };
@@ -42,6 +51,10 @@ export function createIngestProcessor({ storage, llm }: IngestDeps) {
         embedding: vectors[position],
       })),
     );
+
+    // "Ready" must mean "the chat can use it": wait until search finds the new chunks.
+    const deadline = Date.now() + searchableTimeoutMs;
+    while (!(await isSearchable(String(doc._id), vectors[0]!)) && Date.now() < deadline) await sleep(1_000);
 
     const updated = await DocumentModel.updateOne(
       { _id: doc._id },

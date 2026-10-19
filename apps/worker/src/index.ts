@@ -1,5 +1,5 @@
 import { Queue, Worker } from 'bullmq';
-import { connectDb, disconnectDb } from '@support-agent/db';
+import { connectDb, disconnectDb, isDocumentSearchable } from '@support-agent/db';
 import { createLlm } from '@support-agent/llm';
 import { createRedis, QUEUES, SYSTEM_JOBS, type IngestJob, type PingJob } from '@support-agent/queue';
 import { createS3Storage } from '@support-agent/storage';
@@ -56,6 +56,7 @@ const ingestWorker = new Worker<IngestJob, IngestResult>(
   QUEUES.ingest,
   createIngestProcessor({
     storage,
+    isSearchable: isDocumentSearchable,
     llm: createLlm({
       provider: env.LLM_PROVIDER,
       apiKey: env.GEMINI_API_KEY,
