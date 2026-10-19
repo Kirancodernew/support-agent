@@ -19,5 +19,7 @@ const documentSchema = new Schema(
 );
 
 documentSchema.index({ workspaceId: 1, createdAt: -1 });
+// Serves the stale-upload cleanup: "uploading" records older than a cutoff.
+documentSchema.index({ status: 1, createdAt: 1 });
 
 export const DocumentModel = model('Document', documentSchema);

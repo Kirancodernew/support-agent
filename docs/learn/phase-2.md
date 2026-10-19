@@ -48,6 +48,20 @@ old chunks, so a second run replaces rather than duplicates. The job id is the d
 so enqueueing twice is a no-op. If the user deletes the document mid-processing, the worker
 notices on its final update and removes the chunks it just wrote.
 
+### Where files live, and how long
+A file belongs to the **workspace**, not the login session: logging out and back in changes
+nothing. It stays (S3 file + record + chunks) until someone clicks Delete.
+
+**Abandoned uploads** (tab closed mid-upload) would otherwise stay "uploading" forever, count
+toward the 20-document limit, and maybe leave a file in S3. A cleanup job removes "uploading"
+records older than an hour, plus their S3 file. An hour is safe: upload links expire after 5
+minutes, so such an upload can never finish. The delete is conditional on still being
+"uploading", so an upload completed at the last second is left alone.
+
+It runs every 15 minutes through a **BullMQ job scheduler stored in Redis**, not `setInterval`:
+with several worker copies, `setInterval` would run it once per copy; the scheduler runs it once
+in total, and `upsert` makes registering it on every boot safe.
+
 ### Chunking
 ~1,000-character chunks, packed by paragraph, falling back to sentences, then words. Each
 chunk starts with the last ~150 characters of the previous one, so a sentence on a boundary
@@ -82,6 +96,11 @@ both, so a producer and consumer can't drift apart.
    `x-api-key` and `set-cookie` are redacted; a test fails if they ever leak again.
 4. **Search returned nothing right after "Ready".** Atlas indexes new chunks a few seconds after
    they're written (eventual consistency). The UI now says so.
+
+5. **Worker crashed on Railway: `TypeError: Invalid URL` in ioredis.** The pasted `REDIS_URL`
+   had a stray `"` at the end. Our check only tested `startsWith('redis')`, so ioredis failed
+   instead — and its error printed the whole URL, password included, into the logs. Now
+   `REDIS_URL` is parsed as a real URL at startup, and the error never echoes the value.
 
 ## Interview questions you can now answer
 

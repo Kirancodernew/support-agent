@@ -4,6 +4,9 @@ import { Redis } from 'ioredis';
 // Queue names and job shapes live in one place so producers (API) and consumers (worker) can't drift.
 export const QUEUES = { system: 'system', ingest: 'ingest' } as const;
 
+/** Jobs on the system queue: health pings and scheduled housekeeping. */
+export const SYSTEM_JOBS = { ping: 'ping', cleanupStaleUploads: 'cleanup-stale-uploads' } as const;
+
 export type PingJob = { sentAt: number };
 export type PingResult = { pong: true; latencyMs: number };
 export type IngestJob = { documentId: string };

@@ -7,7 +7,7 @@ Phases 0–3 are enough for the resume; 4–7 make it stand out.
 |---|---|
 | 0. Setup | ✅ Done — web on Vercel, api + worker on Railway |
 | 1. Auth + workspaces | ✅ Done — live on Vercel + Railway |
-| 2. Doc ingestion | Built, verified locally with real S3/Gemini/Atlas; deploy pending |
+| 2. Doc ingestion | ✅ Done — live: upload → S3 → worker → Gemini → Atlas search |
 | 3. RAG chat | Not started |
 | 4. Embeddable widget | Not started |
 | 5. Agent tools | Not started |
@@ -75,6 +75,7 @@ thumbs up / down feedback on answers.
 ## Phase 7 — Polish
 
 **Build:** tests for the API and the RAG pipeline, README with an architecture diagram,
-seeded demo account, p95 latency measured and logged.
+seeded demo account, p95 latency measured and logged, and **delete workspace** (removes every
+file, chunk, key and user — needed for privacy laws like GDPR / India's DPDP Act).
 **Done when:** a recruiter can open the live link, log in to the demo, and try it.
 **Learn:** what to test and why, how to present the project in 2 minutes.
