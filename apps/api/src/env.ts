@@ -22,5 +22,11 @@ export const env = loadEnv(
     GEMINI_CHAT_MODEL: z.string().default('gemini-3.5-flash-lite'),
     // Atlas scores are 0–1 (higher = closer). Below this, a passage is treated as unrelated.
     CHAT_MIN_SCORE: z.coerce.number().min(0).max(1).default(0.75),
+    // Optional: real email alerts for tickets/handoffs. Without a key, items still reach the Inbox.
+    RESEND_API_KEY: z.string().optional(),
+    EMAIL_FROM: z.string().default('Support Agent <onboarding@resend.dev>'),
+    // The web app's public address (for the demo shop URL) and the demo shop's signing secret.
+    PUBLIC_WEB_URL: z.url().default('http://localhost:3000'),
+    DEMO_SHOP_SECRET: z.string().min(16).optional(),
   }),
 );

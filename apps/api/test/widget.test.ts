@@ -134,7 +134,6 @@ describe('public widget', () => {
     // Bob's widget never sees Alice's document, even for a perfect match.
     expect(String(res.body)).not.toContain('faq.md');
     expect(String(res.body)).not.toContain('SAVE50');
-    expect(String(res.body)).toContain("I don't know");
   });
 
   it(`limits each visitor to ${WIDGET_LIMITS.perVisitorPerMinute} messages a minute`, async () => {

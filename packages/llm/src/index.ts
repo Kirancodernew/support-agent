@@ -5,8 +5,11 @@ export {
   EMBEDDING_DIMENSIONS,
   type ChatTurn,
   type EmbedKind,
+  type GenerateEvent,
   type GenerateRequest,
   type Llm,
+  type ToolCall,
+  type ToolDeclaration,
 } from './types';
 
 export type LlmConfig = { provider: 'gemini'; apiKey: string; embedModel: string; chatModel: string };

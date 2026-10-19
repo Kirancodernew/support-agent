@@ -104,3 +104,17 @@ textarea {
 textarea[aria-invalid='true'] { border-color: var(--bad); }
 .key-box .actions { margin-top: 0; }
 .widget-preview { width: 100%; max-width: 380px; height: 480px; border: 1px solid var(--line); border-radius: 14px; display: block; }
+
+.tool-steps { list-style: none; margin: 0 0 6px; padding: 0; font-size: 13px; color: var(--muted); }
+.tool-step.done { color: var(--ok); }
+.tool-step.failed { color: var(--bad); }
+.tabs button { padding: 6px 12px; }
+.inbox { list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-direction: column; gap: 10px; }
+.inbox-item { border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+.inbox-item .summary { margin: 4px 0; color: var(--fg); }
+.inbox-item .details { margin: 8px 0 0; font-size: 14px; color: var(--fg); }
+.inbox-item details { margin-top: 8px; font-size: 14px; }
+.transcript p { margin: 4px 0; color: var(--fg); }
+.kind { font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); font-weight: 500; }
+.kind-handoff { border-color: var(--bad); color: var(--bad); }
+.test-result { background: var(--input); border: 1px solid var(--line); border-radius: 8px; padding: 10px; font-size: 12px; overflow-x: auto; }

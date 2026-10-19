@@ -15,7 +15,7 @@ const chatSchema = z.object({
 });
 
 /** The owner testing their agent from the dashboard. */
-export function chatRouter(deps: Pick<AppDeps, 'llm' | 'retriever' | 'rateLimiter' | 'chat'>) {
+export function chatRouter(deps: AppDeps) {
   const router = Router();
   router.use(requireAuth);
 
@@ -42,10 +42,16 @@ export function chatRouter(deps: Pick<AppDeps, 'llm' | 'retriever' | 'rateLimite
     } else {
       conversation = new ConversationModel({ workspaceId, channel: 'dashboard', title: body.message.slice(0, 80), messages: [] });
     }
-    const workspace = await WorkspaceModel.findById(workspaceId, { name: 1 });
+    const workspace = await WorkspaceModel.findById(workspaceId, { name: 1, orderWebhookUrl: 1, webhookSecret: 1, notifyEmail: 1 });
     if (!workspace) throw new HttpError(401, 'unauthorized', 'Please log in');
 
-    await streamAnswer(deps, { req, res, workspace: { id: workspaceId, name: workspace.name }, conversation, message: body.message });
+    await streamAnswer(deps, {
+      req,
+      res,
+      workspace: { ...workspace.toObject(), id: workspaceId },
+      conversation,
+      message: body.message,
+    });
   });
 
   return router;

@@ -2,12 +2,14 @@
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { type ErrorHandler } from '@/lib/api';
-import { streamChat, type ChatSource } from '@/lib/chat-stream';
+import { streamChat, type ChatSource, type ToolStep } from '@/lib/chat-stream';
+import { applyToolStep, ToolSteps } from './tool-steps';
 
 type Message = {
   role: 'user' | 'assistant';
   content: string;
   sources?: ChatSource[];
+  steps?: ToolStep[];
   streaming?: boolean;
   failed?: boolean;
   firstTokenMs?: number;
@@ -54,6 +56,7 @@ export function ChatPanel({ onError }: { onError: ErrorHandler }) {
             updateLast((m) => ({ ...m, sources: meta.sources }));
           },
           onToken: (text) => updateLast((m) => ({ ...m, content: m.content + text })),
+          onTool: (step) => updateLast((m) => ({ ...m, steps: applyToolStep(m.steps, step) })),
           onDone: (stats) => updateLast((m) => ({ ...m, streaming: false, firstTokenMs: stats.firstTokenMs })),
           onError: (text) => updateLast((m) => ({ ...m, streaming: false, failed: true, content: m.content || text })),
         },
@@ -91,7 +94,8 @@ export function ChatPanel({ onError }: { onError: ErrorHandler }) {
         <div className="chat" aria-live="polite">
           {messages.map((m, i) => (
             <div key={i} className={`bubble ${m.role}${m.failed ? ' failed' : ''}`}>
-              <p>{m.content || (m.streaming ? 'Thinking…' : '')}</p>
+              <ToolSteps steps={m.steps} />
+              <p>{m.content || (m.streaming && !m.steps?.length ? 'Thinking…' : '')}</p>
               {m.role === 'assistant' && !m.streaming && m.sources && m.sources.length > 0 && (
                 <div className="sources">
                   {m.sources.map((s) => (

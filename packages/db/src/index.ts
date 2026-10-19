@@ -4,6 +4,8 @@ export { ensureVectorIndex, VECTOR_INDEX } from './vector-index';
 export { ApiKeyModel } from './models/api-key';
 export { ChunkModel } from './models/chunk';
 export { ConversationModel, MAX_MESSAGES_PER_CONVERSATION } from './models/conversation';
+export { nextSequence } from './models/counter';
+export { INBOX_KINDS, InboxItemModel, type InboxKind } from './models/inbox-item';
 export { DOCUMENT_STATUSES, DocumentModel, type DocumentStatus } from './models/document';
 export { UserModel } from './models/user';
 export { WorkspaceModel } from './models/workspace';

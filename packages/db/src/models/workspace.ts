@@ -8,6 +8,12 @@ const workspaceSchema = new Schema(
     publishableKey: { type: String, unique: true, sparse: true },
     // Websites allowed to show the widget, as origins like "https://acme.com".
     allowedOrigins: { type: [String], default: [] },
+    // The business's own order system. We POST signed lookups to it (see the agent's order tool).
+    orderWebhookUrl: { type: String, default: null },
+    // Shared secret for signing those requests, so the business can verify they came from us.
+    webhookSecret: { type: String, default: null },
+    // Where tickets and handoffs are emailed. Empty = the account owner's email.
+    notifyEmail: { type: String, default: null },
   },
   { timestamps: true },
 );

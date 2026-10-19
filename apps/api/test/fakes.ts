@@ -1,7 +1,9 @@
 import { ChunkModel, type Retriever } from '@support-agent/db';
-import type { GenerateRequest, Llm } from '@support-agent/llm';
+import type { GenerateEvent, GenerateRequest, Llm } from '@support-agent/llm';
 import type { IngestQueue } from '@support-agent/queue';
 import type { Storage } from '@support-agent/storage';
+import type { Notifier } from '../src/agent/notifier';
+import type { OrderLookup, OrderQuery, OrderResult } from '../src/agent/order-lookup';
 import type { AppDeps } from '../src/deps';
 import type { RateLimiter } from '../src/lib/rate-limit';
 
@@ -44,20 +46,37 @@ export function createFakes() {
       enqueued.push(documentId);
     },
   };
-  // The fake model "answers" with fixed pieces and records every request, so tests can check
-  // what the prompt contained. Set `fail` to make it break after the first piece.
+  // The fake model. By default it "answers" with two text pieces. Tests can script each model
+  // call (e.g. "call get_order_status", then "say X"); every request is recorded so tests can
+  // check what the prompt contained. Set `fail` to make it break after the first piece.
   const generated: GenerateRequest[] = [];
-  const model = { pieces: ['Standard shipping ', 'takes 3 to 5 days [1].'], fail: false };
+  const model = {
+    pieces: ['Standard shipping ', 'takes 3 to 5 days [1].'],
+    script: [] as GenerateEvent[][],
+    fail: false,
+  };
   const llm: Llm = {
     embed: async (texts) => texts.map(fakeEmbed),
     async *generateStream(request) {
-      generated.push(request);
-      for (const [i, piece] of model.pieces.entries()) {
+      generated.push({ ...request, turns: [...request.turns] });
+      const step = model.script.shift() ?? model.pieces.map((text): GenerateEvent => ({ type: 'text', text }));
+      for (const [i, event] of step.entries()) {
         if (model.fail && i === 1) throw new Error('model exploded');
-        yield piece;
+        yield event;
       }
+      yield { type: 'end', providerParts: ['raw-reply'] };
     },
   };
+  const orderCalls: { url: string; query: OrderQuery }[] = [];
+  const orderResult: { next: OrderResult } = { next: { found: true, order: { id: '1001', status: 'Shipped', eta: 'Arrives 21 Oct' } } };
+  const orders: OrderLookup = {
+    lookup: async ({ url }, query) => {
+      orderCalls.push({ url, query });
+      return orderResult.next;
+    },
+  };
+  const emails: { to: string; subject: string; text: string }[] = [];
+  const notifier: Notifier = { notify: async (m) => void emails.push(m) };
   const hits = new Map<string, number>();
   const rateLimiter: RateLimiter = {
     hit: async (key, limit) => {
@@ -78,19 +97,26 @@ export function createFakes() {
   };
 
   // Fake vectors are word counts, so related texts score lower than real embeddings would.
-  const deps: AppDeps = { storage, ingestQueue, llm, retriever, rateLimiter, chat: { minScore: 0.3 } };
+  const deps: AppDeps = { storage, ingestQueue, llm, retriever, rateLimiter, chat: { minScore: 0.3 }, orders, notifier };
   return {
     deps,
     files,
     enqueued,
     generated,
     model,
+    orderCalls,
+    orderResult,
+    emails,
     reset() {
       files.clear();
       enqueued.length = 0;
       generated.length = 0;
       hits.clear();
       model.fail = false;
+      model.script.length = 0;
+      orderCalls.length = 0;
+      emails.length = 0;
+      orderResult.next = { found: true, order: { id: '1001', status: 'Shipped', eta: 'Arrives 21 Oct' } };
     },
   };
 }

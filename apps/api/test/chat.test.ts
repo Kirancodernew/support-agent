@@ -1,7 +1,6 @@
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { ChunkModel, ConversationModel, DocumentModel, WorkspaceModel } from '@support-agent/db';
-import { NO_ANSWER } from '../src/chat/prompt';
 import { CHAT_MESSAGES_PER_MINUTE } from '../src/routes/chat';
 import { fakeEmbed } from './fakes';
 import { app, fakes, signedUpBrowser, useTestDb } from './helpers';
@@ -64,7 +63,7 @@ describe('chat', () => {
     // The model saw the rules, the workspace name, and the numbered passage.
     const prompt = fakes.generated[0]!;
     expect(prompt.system).toContain('Acme');
-    expect(prompt.turns.at(-1)!.text).toContain('[1] (from shipping.md)\nStandard shipping takes 3 to 5 business days.');
+    expect(prompt.turns.at(-1)).toMatchObject({ text: expect.stringContaining('[1] (from shipping.md)\nStandard shipping takes 3 to 5 business days.') });
 
     const saved = await ConversationModel.findById(meta.conversationId).lean();
     expect(saved!.messages.map((m) => [m.role, m.content])).toEqual([
@@ -74,14 +73,19 @@ describe('chat', () => {
     expect(saved!.messages[1]!.sources![0]).toMatchObject({ filename: 'shipping.md' });
   });
 
-  it('answers "I don\'t know" without calling the model when nothing relevant exists', async () => {
+  it('tells the model when nothing relevant was found, so it can say it doesn\'t know or use a tool', async () => {
     const agent = await signedUpBrowser('owner@acme.test', 'Acme');
     await addDoc('Acme', 'shipping.md', ['Standard shipping takes 3 to 5 business days.']);
 
     const { events } = await ask(agent, 'who is your chief executive officer');
-    expect(answerText(events)).toBe(NO_ANSWER);
     expect((events[0]!.data as { sources: unknown[] }).sources).toEqual([]);
-    expect(fakes.generated).toHaveLength(0);
+    expect(fakes.generated[0]!.turns.at(-1)).toMatchObject({ text: expect.stringContaining('(no relevant passages found)') });
+    expect(fakes.generated[0]!.tools?.map((t) => t.name)).toEqual([
+      'get_order_status',
+      'create_ticket',
+      'request_callback',
+      'handoff_to_human',
+    ]);
   });
 
   it('continues a conversation with history, and keeps the topic for follow-ups', async () => {
@@ -95,7 +99,7 @@ describe('chat', () => {
     expect((second.events[0]!.data as { conversationId: string }).conversationId).toBe(conversationId);
     const turns = fakes.generated[1]!.turns;
     expect(turns.map((t) => t.role)).toEqual(['user', 'assistant', 'user']);
-    expect(turns[0]!.text).toBe('how long does standard shipping take');
+    expect(turns[0]).toMatchObject({ text: 'how long does standard shipping take' });
     expect((await ConversationModel.findById(conversationId).lean())!.messages).toHaveLength(4);
   });
 
@@ -108,8 +112,9 @@ describe('chat', () => {
     const conversationId = (aliceChat.events[0]!.data as { conversationId: string }).conversationId;
 
     expect((await ask(bob, 'hello', conversationId)).status).toBe(404);
-    const bobAsks = await ask(bob, 'alice secret discount code');
-    expect(answerText(bobAsks.events)).toBe(NO_ANSWER);
+    await ask(bob, 'alice secret discount code');
+    // Bob's prompt never contains Alice's passage.
+    expect(JSON.stringify(fakes.generated.at(-1)!.turns)).not.toContain('SAVE50');
   });
 
   it(`limits each workspace to ${CHAT_MESSAGES_PER_MINUTE} messages a minute`, async () => {

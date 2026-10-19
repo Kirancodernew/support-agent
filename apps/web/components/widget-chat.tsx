@@ -2,9 +2,17 @@
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ApiError } from '@/lib/api';
-import { streamChat, type ChatSource } from '@/lib/chat-stream';
+import { streamChat, type ChatSource, type ToolStep } from '@/lib/chat-stream';
+import { applyToolStep, ToolSteps } from './tool-steps';
 
-type Message = { role: 'user' | 'assistant'; content: string; sources?: ChatSource[]; streaming?: boolean; failed?: boolean };
+type Message = {
+  role: 'user' | 'assistant';
+  content: string;
+  sources?: ChatSource[];
+  steps?: ToolStep[];
+  streaming?: boolean;
+  failed?: boolean;
+};
 
 /** A random id kept per browser, so a visitor's follow-ups stay in their own conversation. */
 function visitorId() {
@@ -65,6 +73,7 @@ export function WidgetChat({ publishableKey, businessName }: { publishableKey: s
             updateLast((m) => ({ ...m, sources: meta.sources }));
           },
           onToken: (text) => updateLast((m) => ({ ...m, content: m.content + text })),
+          onTool: (step) => updateLast((m) => ({ ...m, steps: applyToolStep(m.steps, step) })),
           onDone: () => updateLast((m) => ({ ...m, streaming: false })),
           onError: (text) => updateLast((m) => ({ ...m, streaming: false, failed: true, content: m.content || text })),
         },
@@ -96,7 +105,8 @@ export function WidgetChat({ publishableKey, businessName }: { publishableKey: s
         {messages.length === 0 && <p className="muted">Hi! Ask me anything about {businessName}.</p>}
         {messages.map((m, i) => (
           <div key={i} className={`bubble ${m.role}${m.failed ? ' failed' : ''}`}>
-            <p>{m.content || (m.streaming ? 'Thinking…' : '')}</p>
+            <ToolSteps steps={m.steps} />
+            <p>{m.content || (m.streaming && !m.steps?.length ? 'Thinking…' : '')}</p>
             {m.role === 'assistant' && !m.streaming && m.sources && m.sources.length > 0 && (
               <div className="sources">
                 {m.sources.map((s) => (

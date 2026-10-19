@@ -38,7 +38,7 @@ async function enforce(rateLimiter: RateLimiter, res: Response, limitKey: string
 }
 
 /** Endpoints the website widget calls. No login: the publishable key says which workspace. */
-export function publicRouter(deps: Pick<AppDeps, 'llm' | 'retriever' | 'rateLimiter' | 'chat'>) {
+export function publicRouter(deps: AppDeps) {
   const router = Router();
 
   // Read by the widget page's server before rendering, to tell the browser which sites may frame it.
@@ -52,7 +52,10 @@ export function publicRouter(deps: Pick<AppDeps, 'llm' | 'retriever' | 'rateLimi
 
   router.post('/chat', async (req, res) => {
     const body = parseBody(chatSchema, req.body);
-    const workspace = await WorkspaceModel.findOne({ publishableKey: body.key }, { name: 1, allowedOrigins: 1 });
+    const workspace = await WorkspaceModel.findOne(
+      { publishableKey: body.key },
+      { name: 1, allowedOrigins: 1, orderWebhookUrl: 1, webhookSecret: 1, notifyEmail: 1 },
+    );
     if (!workspace) throw unknownKey();
     const workspaceId = String(workspace._id);
 
@@ -86,7 +89,13 @@ export function publicRouter(deps: Pick<AppDeps, 'llm' | 'retriever' | 'rateLimi
       });
     }
 
-    await streamAnswer(deps, { req, res, workspace: { id: workspaceId, name: workspace.name }, conversation, message: body.message });
+    await streamAnswer(deps, {
+      req,
+      res,
+      workspace: { ...workspace.toObject(), id: workspaceId },
+      conversation,
+      message: body.message,
+    });
   });
 
   return router;

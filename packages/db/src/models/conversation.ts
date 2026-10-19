@@ -23,6 +23,8 @@ const messageSchema = new Schema(
     totalMs: { type: Number },
     // The answer stopped early (the user left mid-stream).
     interrupted: { type: Boolean },
+    // Tools the agent used while answering, for the transcript and Phase 6 analytics.
+    actions: { type: [{ tool: String, ok: Boolean, _id: false }], default: undefined },
   },
   { timestamps: { createdAt: true, updatedAt: false } },
 );
@@ -35,6 +37,14 @@ const conversationSchema = new Schema(
     channel: { type: String, enum: ['dashboard', 'widget'], default: 'dashboard' },
     // Anonymous id the widget keeps per browser, so a visitor only ever sees their own chats.
     visitorId: { type: String },
+    // An action the agent proposed and the customer hasn't confirmed yet (args = what they were
+    // shown). It runs only if requested again for the same person *after* a newer customer message.
+    pendingAction: {
+      type: new Schema({ key: String, tool: String, args: String, userMessages: Number }, { _id: false }),
+      default: null,
+    },
+    // The agent (or the customer) asked for a person to take over.
+    needsHuman: { type: Boolean, default: false },
     // Embedded: a conversation is always read whole, and is capped at 50 messages.
     messages: { type: [messageSchema], default: [] },
   },

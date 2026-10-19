@@ -8,7 +8,8 @@
     "build": "tsup",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "eval": "tsx eval/agent-eval.ts"
   },
   "dependencies": {
     "@support-agent/config": "^0.0.0",

@@ -2,6 +2,8 @@ import { connectDb, createAtlasRetriever, disconnectDb, ensureVectorIndex } from
 import { createLlm, EMBEDDING_DIMENSIONS } from '@support-agent/llm';
 import { createIngestQueue, createRedis } from '@support-agent/queue';
 import { createS3Storage } from '@support-agent/storage';
+import { createResendNotifier, noopNotifier } from './agent/notifier';
+import { createWebhookOrderLookup } from './agent/order-lookup';
 import { createApp } from './app';
 import { createRedisRateLimiter } from './lib/rate-limit';
 import { env } from './env';
@@ -41,6 +43,9 @@ const app = createApp({
   retriever: createAtlasRetriever(),
   rateLimiter: createRedisRateLimiter(redis),
   chat: { minScore: env.CHAT_MIN_SCORE },
+  // http://localhost webhooks are allowed only in local development (the demo shop runs there).
+  orders: createWebhookOrderLookup({ allowLocalHttp: env.NODE_ENV === 'development' }),
+  notifier: env.RESEND_API_KEY ? createResendNotifier({ apiKey: env.RESEND_API_KEY, from: env.EMAIL_FROM }) : noopNotifier,
 });
 
 const server = app.listen(env.PORT, () => {

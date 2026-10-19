@@ -90,7 +90,7 @@ export function documentsRouter({ storage, ingestQueue }: Pick<AppDeps, 'storage
     const updated = await DocumentModel.findOneAndUpdate(
       { _id: doc._id, status: 'uploading' },
       { status: 'queued' },
-      { new: true },
+      { returnDocument: 'after' },
     );
     if (!updated) throw new HttpError(409, 'already_completed', 'This upload was already completed');
     await ingestQueue.enqueue(String(updated._id));

@@ -1,4 +1,4 @@
-import { EMBEDDING_DIMENSIONS, type EmbedKind, type GenerateRequest, type Llm } from './types';
+import { EMBEDDING_DIMENSIONS, type ChatTurn, type EmbedKind, type GenerateRequest, type Llm } from './types';
 
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
 const BATCH_SIZE = 100; // Gemini's limit per batchEmbedContents call
@@ -59,10 +59,11 @@ export function createGemini({ apiKey, embedModel, chatModel }: GeminiConfig): L
       return out;
     },
 
-    async *generateStream({ system, turns, signal }: GenerateRequest) {
+    async *generateStream({ system, turns, tools, signal }: GenerateRequest) {
       const body = JSON.stringify({
         systemInstruction: { parts: [{ text: system }] },
-        contents: turns.map((t) => ({ role: t.role === 'assistant' ? 'model' : 'user', parts: [{ text: t.text }] })),
+        contents: turns.map(toGeminiContent),
+        ...(tools?.length && { tools: [{ functionDeclarations: tools }] }),
         // Low temperature: support answers should stick to the sources, not be creative.
         generationConfig: { temperature: 0.2, maxOutputTokens: 800 },
       });
@@ -72,6 +73,7 @@ export function createGemini({ apiKey, embedModel, chatModel }: GeminiConfig): L
 
       // Server-Sent Events: "data: {json}" lines. A network chunk can end mid-line, so buffer.
       const decoder = new TextDecoder();
+      const rawParts: GeminiPart[] = [];
       let buffer = '';
       for await (const chunk of res.body) {
         buffer += decoder.decode(chunk, { stream: true });
@@ -79,14 +81,44 @@ export function createGemini({ apiKey, embedModel, chatModel }: GeminiConfig): L
         buffer = lines.pop() ?? '';
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue;
-          const event = JSON.parse(line.slice(6)) as {
-            candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] } }[];
-          };
+          const event = JSON.parse(line.slice(6)) as { candidates?: { content?: { parts?: GeminiPart[] } }[] };
           for (const part of event.candidates?.[0]?.content?.parts ?? []) {
-            if (part.text && !part.thought) yield part.text;
+            rawParts.push(part);
+            if (part.functionCall) {
+              const { id, name, args } = part.functionCall;
+              yield { type: 'toolCall' as const, call: { id, name, args: args ?? {} } };
+            } else if (part.text && !part.thought) {
+              yield { type: 'text' as const, text: part.text };
+            }
           }
         }
       }
+      yield { type: 'end' as const, providerParts: rawParts };
     },
   };
+}
+
+type GeminiPart = {
+  text?: string;
+  thought?: boolean;
+  functionCall?: { id?: string; name: string; args?: Record<string, unknown> };
+  thoughtSignature?: string;
+};
+
+function toGeminiContent(turn: ChatTurn) {
+  switch (turn.role) {
+    case 'user':
+      return { role: 'user', parts: [{ text: turn.text }] };
+    case 'assistant':
+      // Replay Gemini's own reply verbatim when we have it (tool calls need their signatures).
+      if (Array.isArray(turn.providerParts) && turn.providerParts.length > 0) {
+        return { role: 'model', parts: turn.providerParts };
+      }
+      return { role: 'model', parts: [{ text: turn.text }] };
+    case 'tool':
+      return {
+        role: 'user',
+        parts: turn.results.map((r) => ({ functionResponse: { id: r.id, name: r.name, response: { result: r.result } } })),
+      };
+  }
 }

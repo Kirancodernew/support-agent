@@ -12,4 +12,6 @@ Object.assign(process.env, {
   AWS_SECRET_ACCESS_KEY: 'test',
   S3_BUCKET: 'test-bucket',
   GEMINI_API_KEY: 'test',
+  DEMO_SHOP_SECRET: 'demo-shop-secret-for-tests-only',
+  PUBLIC_WEB_URL: 'https://web.test',
 });

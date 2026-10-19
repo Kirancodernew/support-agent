@@ -1,4 +1,13 @@
+import path from 'node:path';
+import { loadEnvConfig } from '@next/env';
 import type { NextConfig } from 'next';
+
+// Local dev: also read the repo-root .env (Next only looks in apps/web by default).
+// forceReload: Next has already loaded (and cached) apps/web's env, so a plain call is a no-op.
+// Production builds skip this and use the host's variables (Vercel).
+if (process.env.NODE_ENV !== 'production') {
+  loadEnvConfig(path.resolve(process.cwd(), '../..'), true, console, true);
+}
 
 const API_URL = process.env.API_URL ?? 'http://localhost:4000';
 

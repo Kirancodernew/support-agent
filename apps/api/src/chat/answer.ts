@@ -1,10 +1,13 @@
 import type { Request, Response } from 'express';
 import { ConversationModel, DocumentModel } from '@support-agent/db';
-import type { ChatTurn } from '@support-agent/llm';
+import type { ChatTurn, ToolCall } from '@support-agent/llm';
+import { executeTool, TOOL_DECLARATIONS, type ToolContext } from '../agent/tools';
 import type { AppDeps } from '../deps';
-import { buildSystemPrompt, buildUserTurn, HISTORY_MESSAGES, NO_ANSWER, retrievalQuery } from './prompt';
+import { buildSystemPrompt, buildUserTurn, GIVE_UP_ANSWER, HISTORY_MESSAGES, retrievalQuery } from './prompt';
 
 const TOP_K = 5;
+/** Most model↔tool round trips per message: a confused model can't loop (or spend) forever. */
+export const MAX_AGENT_STEPS = 4;
 
 type ConversationDoc = InstanceType<typeof ConversationModel>;
 
@@ -13,12 +16,13 @@ const sendEvent = (res: Response, event: string, data: unknown) =>
   res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 
 /**
- * The RAG answer, shared by the dashboard chat and the website widget:
- * retrieve this workspace's passages → stream a grounded answer as SSE → save both messages.
+ * The agent's answer, shared by the dashboard chat and the website widget:
+ * retrieve this workspace's passages → let the model answer and/or use tools (guarded loop)
+ * → stream text and tool status as SSE → save both messages.
  * The caller has already authenticated, rate-limited and loaded (or created) the conversation.
  */
 export async function streamAnswer(
-  { llm, retriever, chat }: Pick<AppDeps, 'llm' | 'retriever' | 'chat'>,
+  { llm, retriever, chat, orders, notifier }: Pick<AppDeps, 'llm' | 'retriever' | 'chat' | 'orders' | 'notifier'>,
   {
     req,
     res,
@@ -28,14 +32,14 @@ export async function streamAnswer(
   }: {
     req: Request;
     res: Response;
-    workspace: { id: string; name: string };
+    workspace: ToolContext['workspace'];
     conversation: ConversationDoc;
     message: string;
   },
 ) {
   const history: ChatTurn[] = conversation.messages
     .slice(-HISTORY_MESSAGES)
-    .map((m) => ({ role: m.role as ChatTurn['role'], text: m.content }));
+    .map((m) => (m.role === 'user' ? { role: 'user', text: m.content } : { role: 'assistant', text: m.content }));
 
   // Retrieve: embed the question, find the closest passages in this workspace only.
   const [vector] = await llm.embed([retrievalQuery(history, message)], 'query');
@@ -46,17 +50,11 @@ export async function streamAnswer(
     { filename: 1 },
   );
   const filenames = new Map(docs.map((d) => [String(d._id), d.filename]));
-  // Weak matches are dropped: better "I don't know" than an answer built on unrelated text.
+  // Weak matches are dropped so the model isn't tempted to answer from unrelated text.
   const sources = hits
     .filter((h) => filenames.has(h.documentId) && h.score >= chat.minScore)
     .map((h, i) => ({ n: i + 1, ...h, filename: filenames.get(h.documentId)! }));
-  const citedSources = sources.map(({ n, documentId, filename, position, score }) => ({
-    n,
-    documentId,
-    filename,
-    position,
-    score,
-  }));
+  const citedSources = sources.map(({ n, documentId, filename, position, score }) => ({ n, documentId, filename, position, score }));
 
   conversation.messages.push({ role: 'user', content: message });
   await conversation.save();
@@ -80,6 +78,12 @@ export async function streamAnswer(
   const started = Date.now();
   let firstTokenMs: number | undefined;
   let answer = '';
+  const actions: { tool: string; ok: boolean }[] = [];
+  const say = (text: string) => {
+    firstTokenMs ??= Date.now() - started;
+    answer += text;
+    sendEvent(res, 'token', { text });
+  };
   const saveAnswer = (extra: { totalMs?: number; interrupted?: boolean }) =>
     ConversationModel.updateOne(
       { _id: conversation._id },
@@ -87,8 +91,9 @@ export async function streamAnswer(
         $push: {
           messages: {
             role: 'assistant',
-            content: answer,
+            content: answer || '…',
             sources: citedSources.map(({ n: _n, ...s }) => s),
+            actions: actions.length ? actions : undefined,
             firstTokenMs,
             ...extra,
           },
@@ -96,26 +101,53 @@ export async function streamAnswer(
       },
     );
 
+  const ctx: ToolContext = { workspace, conversation, orders, notifier, log: req.log };
+  const turns: ChatTurn[] = [...history, { role: 'user', text: buildUserTurn(message, sources) }];
+
   try {
-    if (sources.length === 0) {
-      answer = NO_ANSWER;
-      firstTokenMs = Date.now() - started;
-      sendEvent(res, 'token', { text: answer });
-    } else {
-      const stream = llm.generateStream({
+    let finished = false;
+    for (let step = 0; step < MAX_AGENT_STEPS && !finished; step++) {
+      const calls: ToolCall[] = [];
+      let stepText = '';
+      let providerParts: unknown;
+      for await (const event of llm.generateStream({
         system: buildSystemPrompt(workspace.name),
-        turns: [...history, { role: 'user', text: buildUserTurn(message, sources) }],
+        turns,
+        tools: TOOL_DECLARATIONS,
         signal: abort.signal,
-      });
-      for await (const piece of stream) {
-        firstTokenMs ??= Date.now() - started;
-        answer += piece;
-        sendEvent(res, 'token', { text: piece });
+      })) {
+        if (event.type === 'text') {
+          stepText += event.text;
+          say(event.text);
+        } else if (event.type === 'toolCall') {
+          calls.push(event.call);
+        } else {
+          providerParts = event.providerParts;
+        }
       }
+      if (calls.length === 0) {
+        finished = true;
+        break;
+      }
+
+      // The model asked for tools: run each (our code decides), then hand the results back.
+      turns.push({ role: 'assistant', text: stepText, toolCalls: calls, providerParts });
+      const results = [];
+      for (const call of calls) {
+        sendEvent(res, 'tool', { name: call.name, status: 'running' });
+        const outcome = await executeTool(call, ctx);
+        sendEvent(res, 'tool', { name: call.name, status: outcome.ok ? 'done' : 'failed', label: outcome.label });
+        actions.push({ tool: call.name, ok: outcome.ok });
+        results.push({ id: call.id, name: call.name, result: outcome.result });
+      }
+      turns.push({ role: 'tool', results });
+      if (stepText) say('\n\n');
     }
+    if (!finished) say(GIVE_UP_ANSWER);
+
     const totalMs = Date.now() - started;
     await saveAnswer({ totalMs });
-    req.log.info({ firstTokenMs, totalMs, sources: sources.length, channel: conversation.channel }, 'chat answered');
+    req.log.info({ firstTokenMs, totalMs, sources: sources.length, actions, channel: conversation.channel }, 'chat answered');
     sendEvent(res, 'done', { firstTokenMs, totalMs });
   } catch (err) {
     if (abort.signal.aborted) {

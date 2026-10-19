@@ -2,11 +2,22 @@ import { ApiError } from './api';
 
 export type ChatSource = { n: number; documentId: string; filename: string; position: number; score: number };
 
+export type ToolStep = { name: string; status: 'running' | 'done' | 'failed'; label?: string };
+
+/** What the customer sees while a tool runs (the server's label, once known, is more specific). */
+export const TOOL_LABELS: Record<string, string> = {
+  get_order_status: 'Checking your order…',
+  create_ticket: 'Preparing a ticket…',
+  request_callback: 'Requesting a call-back…',
+  handoff_to_human: 'Notifying the team…',
+};
+
 type Handlers = {
   onMeta: (meta: { conversationId: string; sources: ChatSource[] }) => void;
   onToken: (text: string) => void;
   onDone: (stats: { firstTokenMs: number; totalMs: number }) => void;
   onError: (message: string) => void;
+  onTool?: (step: ToolStep) => void;
 };
 
 /**
@@ -50,6 +61,7 @@ export async function streamChat(
       else if (event === 'token') handlers.onToken(payload.text);
       else if (event === 'done') handlers.onDone(payload);
       else if (event === 'error') handlers.onError(payload.message);
+      else if (event === 'tool') handlers.onTool?.(payload);
     }
   }
 }
