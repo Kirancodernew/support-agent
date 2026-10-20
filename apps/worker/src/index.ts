@@ -1,9 +1,11 @@
 import { Queue, Worker } from 'bullmq';
 import { connectDb, disconnectDb, isDocumentSearchable } from '@support-agent/db';
 import { createLlm } from '@support-agent/llm';
-import { createRedis, QUEUES, SYSTEM_JOBS, type IngestJob, type PingJob } from '@support-agent/queue';
+import { createIngestQueue, createRedis, QUEUES, SYSTEM_JOBS, type DeleteWorkspaceJob, type IngestJob, type PingJob } from '@support-agent/queue';
 import { createS3Storage } from '@support-agent/storage';
 import { cleanupStaleUploads } from './cleanup';
+import { purgeDeletedWorkspaces, purgeWorkspace } from './delete-workspace';
+import { resetDemo, type DemoDeps } from './demo/demo';
 import { env } from './env';
 import { createIngestProcessor, failureMessage, isFinalFailure, markFailed, type IngestResult } from './ingest';
 import { logger } from './logger';
@@ -28,6 +30,14 @@ const systemConn = createRedis(env.REDIS_URL);
 const ingestConn = createRedis(env.REDIS_URL);
 const schedulerConn = createRedis(env.REDIS_URL);
 
+const ingestQueue = createIngestQueue(schedulerConn);
+const demoDeps: DemoDeps = {
+  storage,
+  enqueueIngest: ingestQueue.enqueue,
+  webUrl: env.PUBLIC_WEB_URL,
+  demoShopSecret: env.DEMO_SHOP_SECRET,
+};
+
 const systemWorker = new Worker(
   QUEUES.system,
   async (job) => {
@@ -36,6 +46,12 @@ const systemWorker = new Worker(
         return { pong: true, latencyMs: Date.now() - (job.data as PingJob).sentAt };
       case SYSTEM_JOBS.cleanupStaleUploads:
         return cleanupStaleUploads(storage);
+      case SYSTEM_JOBS.deleteWorkspace:
+        return purgeWorkspace(storage, (job.data as DeleteWorkspaceJob).workspaceId);
+      case SYSTEM_JOBS.purgeDeletedWorkspaces:
+        return purgeDeletedWorkspaces(storage);
+      case SYSTEM_JOBS.resetDemo:
+        return resetDemo(demoDeps);
       default:
         throw new Error(`unknown job: ${job.name}`);
     }
@@ -46,11 +62,13 @@ const systemWorker = new Worker(
 // Housekeeping every 15 minutes. A scheduler stored in Redis (not setInterval) runs it once per
 // interval in total, however many worker copies are running. Upsert = safe to call on every boot.
 const systemQueue = new Queue(QUEUES.system, { connection: schedulerConn });
-await systemQueue.upsertJobScheduler(
-  SYSTEM_JOBS.cleanupStaleUploads,
-  { every: 15 * 60 * 1000 },
-  { name: SYSTEM_JOBS.cleanupStaleUploads, opts: { removeOnComplete: 50, removeOnFail: 50 } },
-);
+for (const name of [SYSTEM_JOBS.cleanupStaleUploads, SYSTEM_JOBS.purgeDeletedWorkspaces]) {
+  await systemQueue.upsertJobScheduler(name, { every: 15 * 60 * 1000 }, { name, opts: { removeOnComplete: 50, removeOnFail: 50 } });
+}
+// The public demo goes back to its sample data every night, and on every deploy.
+const demoJob = { name: SYSTEM_JOBS.resetDemo, opts: { removeOnComplete: 20, removeOnFail: 20 } };
+await systemQueue.upsertJobScheduler(SYSTEM_JOBS.resetDemo, { pattern: '0 3 * * *', tz: 'Asia/Kolkata' }, demoJob);
+await systemQueue.add(SYSTEM_JOBS.resetDemo, {}, demoJob.opts);
 
 const ingestWorker = new Worker<IngestJob, IngestResult>(
   QUEUES.ingest,
@@ -76,6 +94,10 @@ systemWorker.on('completed', (job, result) => {
   if (job.name === SYSTEM_JOBS.cleanupStaleUploads && (result as { removed: number }).removed > 0) {
     logger.info({ result }, 'removed abandoned uploads');
   }
+  if (job.name === SYSTEM_JOBS.resetDemo) logger.info({ result }, 'demo reset');
+  if (job.name === SYSTEM_JOBS.deleteWorkspace) {
+    logger.info({ workspaceId: (job.data as DeleteWorkspaceJob).workspaceId, result }, 'workspace deleted');
+  }
 });
 systemWorker.on('failed', (job, err) => logger.error({ job: job?.name, err }, 'system job failed'));
 ingestWorker.on('failed', (job, err) => {
@@ -92,7 +114,7 @@ ingestWorker.on('failed', (job, err) => {
 // Let the current job finish before exiting on redeploy.
 async function shutdown(signal: string) {
   logger.info({ signal }, 'shutting down');
-  await Promise.allSettled([systemWorker.close(), ingestWorker.close(), systemQueue.close()]);
+  await Promise.allSettled([systemWorker.close(), ingestWorker.close(), systemQueue.close(), ingestQueue.close()]);
   await Promise.allSettled([systemConn.quit(), ingestConn.quit(), schedulerConn.quit(), disconnectDb()]);
   process.exit(0);
 }

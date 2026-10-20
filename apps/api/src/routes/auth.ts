@@ -23,11 +23,11 @@ const signupSchema = z.object({
 const loginSchema = z.object({ email, password: z.string().min(1, 'Enter your password').max(200) });
 
 type UserDoc = { _id: unknown; email: string };
-type WorkspaceDoc = { _id: unknown; name: string };
+type WorkspaceDoc = { _id: unknown; name: string; isDemo?: boolean };
 
 const toPublic = (user: UserDoc, workspace: WorkspaceDoc) => ({
   user: { id: String(user._id), email: user.email },
-  workspace: { id: String(workspace._id), name: workspace.name },
+  workspace: { id: String(workspace._id), name: workspace.name, isDemo: Boolean(workspace.isDemo) },
 });
 
 const isDuplicateKey = (err: unknown) => (err as { code?: number })?.code === 11000;
@@ -72,6 +72,16 @@ authRouter.post('/login', async (req, res) => {
   if (!workspace) throw new Error(`user ${String(user._id)} has no workspace`);
 
   setSessionCookie(res, { userId: String(user._id), workspaceId: String(workspace._id) });
+  res.json(toPublic(user, workspace));
+});
+
+// "Try the demo": a session for the shared demo workspace, no password. Visitors share one user,
+// so each session gets its own id (for per-visitor chat limits).
+authRouter.post('/demo', async (_req, res) => {
+  const workspace = await WorkspaceModel.findOne({ isDemo: true, deletingAt: { $exists: false } });
+  const user = workspace && (await UserModel.findOne({ workspaceId: workspace._id }));
+  if (!workspace || !user) throw new HttpError(503, 'demo_unavailable', 'The demo is being set up. Try again in a minute.');
+  setSessionCookie(res, { userId: String(user._id), workspaceId: String(workspace._id), demo: true });
   res.json(toPublic(user, workspace));
 });
 

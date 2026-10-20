@@ -8,7 +8,7 @@ import { UnsafeUrlError } from './order-lookup';
 type ConversationDoc = InstanceType<typeof ConversationModel>;
 
 export type ToolContext = {
-  workspace: { id: string; name: string; orderWebhookUrl?: string | null; webhookSecret?: string | null; notifyEmail?: string | null };
+  workspace: { id: string; name: string; orderWebhookUrl?: string | null; webhookSecret?: string | null; notifyEmail?: string | null; isDemo?: boolean };
   conversation: ConversationDoc;
   orders: OrderLookup;
   notifier: Notifier;
@@ -63,6 +63,8 @@ async function createInboxItem(
 }
 
 async function notifyTeam(ctx: ToolContext, subject: string, item: Record<string, unknown>) {
+  // Anyone can use the demo, so it must never send email (it could be aimed at a stranger's inbox).
+  if (ctx.workspace.isDemo) return;
   try {
     const to =
       ctx.workspace.notifyEmail ?? (await UserModel.findOne({ workspaceId: ctx.workspace.id }, { email: 1 }).sort({ createdAt: 1 }))?.email;

@@ -16,5 +16,9 @@ export const env = loadEnv(
     GEMINI_API_KEY: z.string().min(1),
     GEMINI_EMBED_MODEL: z.string().default('gemini-embedding-001'),
     GEMINI_CHAT_MODEL: z.string().default('gemini-3.5-flash-lite'),
+    // For the demo workspace: the web app's address (widget origin, demo shop URL) and the demo
+    // shop's signing secret. Without the secret the demo simply has no order lookups.
+    PUBLIC_WEB_URL: z.url().default('http://localhost:3000'),
+    DEMO_SHOP_SECRET: z.string().min(16).optional(),
   }),
 );

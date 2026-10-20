@@ -24,6 +24,7 @@ const storage: Storage = {
   presignUpload: async () => ({ url: '', fields: {} }),
   exists: async () => true,
   download: async () => new Uint8Array(),
+  put: async () => undefined,
   remove: async (key) => void removedKeys.push(key),
 };
 

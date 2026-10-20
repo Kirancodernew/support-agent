@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { api, ApiError, type FieldError, type Me } from '@/lib/api';
+import { TryDemoButton } from './try-demo-button';
 
 type Mode = 'signup' | 'login';
 
@@ -12,7 +13,7 @@ const copy = {
   login: { title: 'Log in', button: 'Log in', switchText: 'New here?', switchHref: '/signup', switchLink: 'Create an account' },
 };
 
-export function AuthForm({ mode }: { mode: Mode }) {
+export function AuthForm({ mode, notice }: { mode: Mode; notice?: string }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldError[]>([]);
@@ -44,6 +45,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
   return (
     <main className="narrow">
       <h1>{text.title}</h1>
+      {notice && <p role="status">{notice}</p>}
       <form onSubmit={onSubmit} className="card form" noValidate>
         {mode === 'signup' && (
           <Field label="Company name" name="workspaceName" autoComplete="organization" error={errorFor('workspaceName')} />
@@ -65,6 +67,8 @@ export function AuthForm({ mode }: { mode: Mode }) {
       <p>
         {text.switchText} <Link href={text.switchHref}>{text.switchLink}</Link>
       </p>
+      <p className="muted">Just looking? Explore a sample shop&apos;s workspace, no signup needed.</p>
+      <TryDemoButton className="secondary" />
     </main>
   );
 }

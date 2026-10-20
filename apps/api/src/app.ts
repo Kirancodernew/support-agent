@@ -13,6 +13,7 @@ import { insightsRouter } from './routes/insights';
 import { integrationsRouter } from './routes/integrations';
 import { publicRouter } from './routes/public';
 import { widgetSettingsRouter } from './routes/widget-settings';
+import { workspaceRouter } from './routes/workspace';
 import { documentsRouter } from './routes/documents';
 import { searchRouter } from './routes/search';
 
@@ -41,6 +42,7 @@ export function createApp(deps: AppDeps) {
   app.use('/integrations', integrationsRouter(deps));
   app.use('/insights', insightsRouter);
   app.use('/conversations', conversationsRouter);
+  app.use('/workspace', workspaceRouter(deps));
 
   app.use((_req, res) => {
     res.status(404).json({ error: 'not_found', message: 'Not found' });

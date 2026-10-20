@@ -55,8 +55,9 @@ const app = createApp({
   llm,
   retriever: { search: async () => (helpSource.hit ? [helpSource.hit] : []) },
   chat: { minScore: 0 },
-  storage: { presignUpload: async () => ({ url: '', fields: {} }), exists: async () => true, download: async () => new Uint8Array(), remove: async () => undefined },
+  storage: { presignUpload: async () => ({ url: '', fields: {} }), exists: async () => true, download: async () => new Uint8Array(), put: async () => undefined, remove: async () => undefined },
   ingestQueue: { enqueue: async () => undefined },
+  jobs: { deleteWorkspace: async () => undefined },
   rateLimiter: { hit: async () => ({ allowed: true, retryAfterSeconds: 0 }) },
   orders: {
     lookup: async (_endpoint, { orderId, email }) => {

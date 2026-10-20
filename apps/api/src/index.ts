@@ -1,6 +1,6 @@
 import { connectDb, createAtlasRetriever, disconnectDb, ensureVectorIndex } from '@support-agent/db';
 import { createLlm, EMBEDDING_DIMENSIONS } from '@support-agent/llm';
-import { createIngestQueue, createRedis } from '@support-agent/queue';
+import { createIngestQueue, createRedis, createSystemQueue } from '@support-agent/queue';
 import { createS3Storage } from '@support-agent/storage';
 import { createResendNotifier, noopNotifier } from './agent/notifier';
 import { createWebhookOrderLookup } from './agent/order-lookup';
@@ -25,6 +25,7 @@ await ensureVectorIndex(EMBEDDING_DIMENSIONS)
 
 const redis = createRedis(env.REDIS_URL);
 const ingestQueue = createIngestQueue(redis);
+const jobs = createSystemQueue(redis);
 
 const app = createApp({
   storage: createS3Storage({
@@ -34,6 +35,7 @@ const app = createApp({
     secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
   }),
   ingestQueue,
+  jobs,
   llm: createLlm({
     provider: env.LLM_PROVIDER,
     apiKey: env.GEMINI_API_KEY,
@@ -56,7 +58,7 @@ const server = app.listen(env.PORT, () => {
 function shutdown(signal: string) {
   logger.info({ signal }, 'shutting down');
   server.close(() => {
-    void Promise.allSettled([ingestQueue.close(), disconnectDb()])
+    void Promise.allSettled([ingestQueue.close(), jobs.close(), disconnectDb()])
       .then(() => redis.quit())
       .finally(() => process.exit(0));
   });

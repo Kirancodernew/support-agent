@@ -4,6 +4,7 @@ import { WorkspaceModel } from '@support-agent/db';
 import { getAuth, requireAuth } from '../auth/require-auth';
 import { generatePublishableKey } from '../lib/api-key';
 import { HttpError } from '../lib/http-error';
+import { forbidInDemo } from '../lib/demo';
 import { parseBody } from '../lib/validate';
 
 export const MAX_ALLOWED_ORIGINS = 10;
@@ -54,7 +55,7 @@ widgetSettingsRouter.get('/', async (req, res) => {
   res.json(toPublic(await loadWorkspace(getAuth(req).workspaceId)));
 });
 
-widgetSettingsRouter.put('/', async (req, res) => {
+widgetSettingsRouter.put('/', forbidInDemo('Changing widget settings'), async (req, res) => {
   const { allowedOrigins } = parseBody(settingsSchema, req.body);
   const workspace = await loadWorkspace(getAuth(req).workspaceId);
   workspace.allowedOrigins = [...new Set(allowedOrigins)];
@@ -63,7 +64,7 @@ widgetSettingsRouter.put('/', async (req, res) => {
 });
 
 // If a key is being abused, issue a new one; the old snippet stops working immediately.
-widgetSettingsRouter.post('/rotate-key', async (req, res) => {
+widgetSettingsRouter.post('/rotate-key', forbidInDemo('Changing widget settings'), async (req, res) => {
   const workspace = await loadWorkspace(getAuth(req).workspaceId);
   workspace.publishableKey = generatePublishableKey();
   await workspace.save();

@@ -140,4 +140,13 @@ describe('chat', () => {
     expect(events.map((e) => e.event)).toEqual(['meta', 'token', 'error']);
     expect(JSON.stringify(events)).not.toContain('exploded');
   });
+
+  it('tells the customer to try again in a minute when the model provider is busy', async () => {
+    const agent = await signedUpBrowser('owner@acme.test', 'Acme');
+    await addDoc('Acme', 'shipping.md', ['Standard shipping takes 3 to 5 business days.']);
+    fakes.model.busy = true;
+
+    const { events } = await ask(agent, 'how long does standard shipping take');
+    expect(events.at(-1)).toEqual({ event: 'error', data: { message: 'The assistant is very busy right now. Please try again in a minute.' } });
+  });
 });

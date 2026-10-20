@@ -1,6 +1,6 @@
 import { ChunkModel, type Retriever } from '@support-agent/db';
-import type { GenerateEvent, GenerateRequest, Llm } from '@support-agent/llm';
-import type { IngestQueue } from '@support-agent/queue';
+import { LlmBusyError, type GenerateEvent, type GenerateRequest, type Llm } from '@support-agent/llm';
+import type { IngestQueue, JobQueue } from '@support-agent/queue';
 import type { Storage } from '@support-agent/storage';
 import type { Notifier } from '../src/agent/notifier';
 import type { OrderLookup, OrderQuery, OrderResult } from '../src/agent/order-lookup';
@@ -28,6 +28,8 @@ const cosine = (a: number[], b: number[]) => {
 export function createFakes() {
   const files = new Map<string, Uint8Array>();
   const enqueued: string[] = [];
+  const deletions: string[] = [];
+  const queueState = { down: false };
 
   const storage: Storage = {
     presignUpload: async (key, contentType) => ({ url: 'https://s3.test/upload', fields: { key, 'Content-Type': contentType } }),
@@ -36,6 +38,9 @@ export function createFakes() {
       const file = files.get(key);
       if (!file) throw new Error(`no such file: ${key}`);
       return file;
+    },
+    put: async (key, body) => {
+      files.set(key, typeof body === 'string' ? new TextEncoder().encode(body) : body);
     },
     remove: async (key) => {
       files.delete(key);
@@ -46,19 +51,28 @@ export function createFakes() {
       enqueued.push(documentId);
     },
   };
+  const jobs: JobQueue = {
+    deleteWorkspace: async (workspaceId) => {
+      if (queueState.down) throw new Error('redis unavailable');
+      deletions.push(workspaceId);
+    },
+  };
   // The fake model. By default it "answers" with two text pieces. Tests can script each model
   // call (e.g. "call get_order_status", then "say X"); every request is recorded so tests can
-  // check what the prompt contained. Set `fail` to make it break after the first piece.
+  // check what the prompt contained. Set `fail` to make it break after the first piece, `busy` to
+  // make the provider refuse before answering (overloaded / timed out).
   const generated: GenerateRequest[] = [];
   const model = {
     pieces: ['Standard shipping ', 'takes 3 to 5 days [1].'],
     script: [] as GenerateEvent[][],
     fail: false,
+    busy: false,
   };
   const llm: Llm = {
     embed: async (texts) => texts.map(fakeEmbed),
     async *generateStream(request) {
       generated.push({ ...request, turns: [...request.turns] });
+      if (model.busy) throw new LlmBusyError('provider overloaded');
       const step = model.script.shift() ?? model.pieces.map((text): GenerateEvent => ({ type: 'text', text }));
       for (const [i, event] of step.entries()) {
         if (model.fail && i === 1) throw new Error('model exploded');
@@ -97,11 +111,13 @@ export function createFakes() {
   };
 
   // Fake vectors are word counts, so related texts score lower than real embeddings would.
-  const deps: AppDeps = { storage, ingestQueue, llm, retriever, rateLimiter, chat: { minScore: 0.3 }, orders, notifier };
+  const deps: AppDeps = { storage, ingestQueue, jobs, llm, retriever, rateLimiter, chat: { minScore: 0.3 }, orders, notifier };
   return {
     deps,
     files,
     enqueued,
+    deletions,
+    queueState,
     generated,
     model,
     orderCalls,
@@ -110,9 +126,12 @@ export function createFakes() {
     reset() {
       files.clear();
       enqueued.length = 0;
+      deletions.length = 0;
+      queueState.down = false;
       generated.length = 0;
       hits.clear();
       model.fail = false;
+      model.busy = false;
       model.script.length = 0;
       orderCalls.length = 0;
       emails.length = 0;

@@ -150,3 +150,6 @@ select { padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); b
   .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .two-col { grid-template-columns: 1fr; }
 }
+
+.danger-zone { border-color: var(--danger); }
+.demo-banner { margin-top: 16px; padding: 10px 14px; border: 1px solid var(--accent); border-radius: 8px; }

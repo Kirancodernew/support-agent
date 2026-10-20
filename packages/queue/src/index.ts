@@ -7,11 +7,18 @@ export type { Redis };
 export const QUEUES = { system: 'system', ingest: 'ingest' } as const;
 
 /** Jobs on the system queue: health pings and scheduled housekeeping. */
-export const SYSTEM_JOBS = { ping: 'ping', cleanupStaleUploads: 'cleanup-stale-uploads' } as const;
+export const SYSTEM_JOBS = {
+  ping: 'ping',
+  cleanupStaleUploads: 'cleanup-stale-uploads',
+  deleteWorkspace: 'delete-workspace',
+  purgeDeletedWorkspaces: 'purge-deleted-workspaces',
+  resetDemo: 'reset-demo',
+} as const;
 
 export type PingJob = { sentAt: number };
 export type PingResult = { pong: true; latencyMs: number };
 export type IngestJob = { documentId: string };
+export type DeleteWorkspaceJob = { workspaceId: string };
 
 // BullMQ blocks on Redis while waiting for jobs, so ioredis must never give up on a command.
 export function createRedis(url: string) {
@@ -43,3 +50,26 @@ export function createIngestQueue(connection: Redis) {
 
 /** What the API needs from the queue; tests substitute an in-memory fake. */
 export type IngestQueue = { enqueue(documentId: string): Promise<unknown> };
+
+export function createSystemQueue(connection: Redis) {
+  const queue = new Queue(QUEUES.system, { connection });
+  return {
+    deleteWorkspace: (workspaceId: string) =>
+      queue.add(
+        SYSTEM_JOBS.deleteWorkspace,
+        { workspaceId } satisfies DeleteWorkspaceJob,
+        {
+          // BullMQ rejects ":" in custom ids (it uses ":" in its own Redis keys).
+          jobId: `${SYSTEM_JOBS.deleteWorkspace}-${workspaceId}`,
+          attempts: 5,
+          backoff: { type: 'exponential', delay: 10_000 },
+          removeOnComplete: 100,
+          removeOnFail: 500,
+        },
+      ),
+    close: () => queue.close(),
+  };
+}
+
+/** Background jobs the API starts; tests substitute an in-memory fake. */
+export type JobQueue = { deleteWorkspace(workspaceId: string): Promise<unknown> };

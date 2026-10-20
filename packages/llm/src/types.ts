@@ -47,3 +47,11 @@ export interface Llm {
   /** Streams the reply: text pieces as they're written, tool calls as they're decided. */
   generateStream(request: GenerateRequest): AsyncIterable<GenerateEvent>;
 }
+
+/** The provider is overloaded or too slow right now: worth trying again later, not a bug in our code. */
+export class LlmBusyError extends Error {
+  override name = 'LlmBusyError';
+}
+
+/** Busy, or a request that hit our timeout (which can also happen while a reply is streaming). */
+export const isLlmBusy = (err: unknown) => err instanceof Error && (err.name === 'LlmBusyError' || err.name === 'TimeoutError');

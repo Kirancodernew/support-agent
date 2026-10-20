@@ -23,7 +23,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   return data as T;
 }
 
-export type Me = { user: { id: string; email: string }; workspace: { id: string; name: string } };
+export type Me = { user: { id: string; email: string }; workspace: { id: string; name: string; isDemo: boolean } };
 
 export type ApiKey = { id: string; name: string; prefix: string; createdAt: string; lastUsedAt: string | null };
 

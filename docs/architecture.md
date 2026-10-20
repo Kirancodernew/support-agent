@@ -38,16 +38,29 @@
 | `llm` provider layer | App code calls `llm.chat()` / `llm.embed()`, never a vendor SDK directly. Swapping to Claude (or OpenAI) is a new provider file and `LLM_PROVIDER`. Note: changing the embedding model means re-embedding all chunks, since vectors from different models aren't comparable. |
 | SSE for chat | One-way server → client streaming is all chat needs; simpler than WebSockets. |
 
-## Data model (first draft)
+## Data model
 
 | Collection | Key fields |
 |---|---|
-| `users` | email, passwordHash, workspaceId |
-| `workspaces` | name, allowedDomains, plan |
-| `apiKeys` | workspaceId, keyHash, prefix, revokedAt |
-| `documents` | workspaceId, s3Key, status (`queued` / `processing` / `ready` / `failed`) |
-| `chunks` | workspaceId, documentId, text, embedding (vector) |
-| `conversations` | workspaceId, messages[], feedback |
-| `tickets` | workspaceId, conversationId, summary, status |
+| `users` | email (unique), passwordHash, workspaceId |
+| `workspaces` | name, publishableKey, allowedOrigins, orderWebhookUrl, webhookSecret, notifyEmail, isDemo, deletingAt |
+| `apikeys` | workspaceId, keyHash (SHA-256), prefix, revokedAt |
+| `documents` | workspaceId, filename, s3Key, status (`uploading` / `queued` / `processing` / `ready` / `failed`) |
+| `chunks` | workspaceId, documentId, position, text, embedding (768-d, Atlas Vector Search index) |
+| `conversations` | workspaceId, channel, visitorId, needsHuman, pendingAction, messages[] (sources, actions, latency, question, questionKey, unanswered, feedback) |
+| `inboxitems` | workspaceId, conversationId, number, kind (ticket / callback / handoff), status, idempotencyKey (unique) |
+| `counters` | per-workspace sequences (Inbox numbers), incremented atomically |
 
 Every query filters by `workspaceId`, so one business never sees another's data.
+
+## Background jobs (worker)
+
+| Job | When | What |
+|---|---|---|
+| `ingest` | after each upload | download from S3 → extract → chunk → embed → save → wait until searchable; 3 tries with backoff |
+| `cleanup-stale-uploads` | every 15 min | removes uploads abandoned before finishing |
+| `delete-workspace` | when an owner deletes | removes S3 files, then chunks, documents, chats, Inbox, keys, users, and the workspace last |
+| `purge-deleted-workspaces` | every 15 min | safety net: finishes deletions whose job never ran or ran out of retries |
+| `reset-demo` | 3am IST and on deploy | creates the demo workspace if missing; restores its sample chats, Inbox and settings |
+
+Schedules live in Redis (BullMQ job schedulers), so with several worker copies each job still runs once.

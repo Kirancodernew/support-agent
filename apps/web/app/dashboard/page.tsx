@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ApiKeysPanel } from '@/components/api-keys-panel';
 import { AppNav } from '@/components/app-nav';
 import { ChatPanel } from '@/components/chat-panel';
+import { DeleteWorkspacePanel } from '@/components/delete-workspace-panel';
 import { DocumentsPanel } from '@/components/documents-panel';
 import { InboxPanel } from '@/components/inbox-panel';
 import { IntegrationsPanel } from '@/components/integrations-panel';
@@ -52,6 +53,14 @@ export default function DashboardPage() {
         </button>
       </div>
 
+      {me.workspace.isDemo && (
+        <p className="demo-banner" role="status">
+          You&apos;re exploring a demo shop. Chat with the agent (5 messages an hour), browse Insights and the Inbox.
+          Uploads and settings are read-only, and everything resets nightly.{' '}
+          <a href="/signup">Sign up free</a> to use your own documents.
+        </p>
+      )}
+
       {error && (
         <p className="error banner" role="alert">
           {error}{' '}
@@ -68,6 +77,7 @@ export default function DashboardPage() {
       <WidgetPanel onError={onError} />
       <IntegrationsPanel onError={onError} />
       <ApiKeysPanel onError={onError} />
+      {!me.workspace.isDemo && <DeleteWorkspacePanel workspaceName={me.workspace.name} onError={onError} />}
     </main>
   );
 }

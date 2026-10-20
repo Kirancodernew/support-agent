@@ -1,9 +1,9 @@
 import type { Request, Response } from 'express';
-import { ConversationModel, DocumentModel, newObjectId } from '@support-agent/db';
-import type { ChatTurn, ToolCall } from '@support-agent/llm';
+import { ConversationModel, DocumentModel, newObjectId, normalizeQuestion } from '@support-agent/db';
+import { isLlmBusy, type ChatTurn, type ToolCall } from '@support-agent/llm';
 import { executeTool, FLAG_UNANSWERED, isInternalTool, TOOL_DECLARATIONS, type ToolContext } from '../agent/tools';
 import type { AppDeps } from '../deps';
-import { buildSystemPrompt, buildUserTurn, GIVE_UP_ANSWER, HISTORY_MESSAGES, normalizeQuestion, retrievalQuery } from './prompt';
+import { buildSystemPrompt, buildUserTurn, GIVE_UP_ANSWER, HISTORY_MESSAGES, retrievalQuery } from './prompt';
 
 const TOP_K = 5;
 /** Most model↔tool round trips per message: a confused model can't loop (or spend) forever. */
@@ -162,6 +162,12 @@ export async function streamAnswer(
   } catch (err) {
     if (abort.signal.aborted) {
       if (answer) await saveAnswer({ interrupted: true }).catch(() => undefined);
+      return;
+    }
+    if (isLlmBusy(err)) {
+      // The model provider is overloaded or slow: expected now and then, so a warning, not an error.
+      req.log.warn({ err }, 'chat failed: model busy');
+      sendEvent(res, 'error', { message: 'The assistant is very busy right now. Please try again in a minute.' });
       return;
     }
     req.log.error({ err }, 'chat failed');

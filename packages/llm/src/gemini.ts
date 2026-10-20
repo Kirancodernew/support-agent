@@ -1,8 +1,9 @@
-import { EMBEDDING_DIMENSIONS, type ChatTurn, type EmbedKind, type GenerateRequest, type Llm } from './types';
+import { EMBEDDING_DIMENSIONS, LlmBusyError, type ChatTurn, type EmbedKind, type GenerateRequest, type Llm } from './types';
 
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
 const BATCH_SIZE = 100; // Gemini's limit per batchEmbedContents call
 const MAX_ATTEMPTS = 4;
+const TIMEOUT_MS = 30_000;
 const RETRYABLE = new Set([429, 500, 502, 503, 504]);
 
 const TASK_TYPE: Record<EmbedKind, string> = { document: 'RETRIEVAL_DOCUMENT', query: 'RETRIEVAL_QUERY' };
@@ -22,15 +23,20 @@ export function createGemini({ apiKey, embedModel, chatModel }: GeminiConfig): L
     for (let attempt = 1; ; attempt++) {
       // Always time out, even when the caller passes its own abort signal: a stalled request
       // must not hang the user's chat forever.
-      const timeout = AbortSignal.timeout(30_000);
-      const res = await fetch(url, { method: 'POST', headers, body, signal: signal ? AbortSignal.any([signal, timeout]) : timeout });
+      const timeout = AbortSignal.timeout(TIMEOUT_MS);
+      const res = await fetch(url, { method: 'POST', headers, body, signal: signal ? AbortSignal.any([signal, timeout]) : timeout }).catch((err: unknown) => {
+        // Not retried: someone is waiting, and a provider this slow is unlikely to be fast a second later.
+        if (timeout.aborted && !signal?.aborted) throw new LlmBusyError(`Gemini did not respond within ${TIMEOUT_MS / 1000}s`);
+        throw err;
+      });
       if (res.ok) return res;
       const detail = await res.text().catch(() => '');
       // The free tier sometimes signals throttling with an empty-bodied 404 instead of a 429.
       const throttled = RETRYABLE.has(res.status) || (res.status === 404 && detail.trim() === '');
-      if (!throttled || attempt === MAX_ATTEMPTS) {
-        throw new Error(`Gemini request failed (${res.status}): ${detail.slice(0, 200)}`);
+      if (throttled && attempt === MAX_ATTEMPTS) {
+        throw new LlmBusyError(`Gemini still throttling after ${MAX_ATTEMPTS} attempts (${res.status})`);
       }
+      if (!throttled) throw new Error(`Gemini request failed (${res.status}): ${detail.slice(0, 200)}`);
       await backoff(attempt);
     }
   }

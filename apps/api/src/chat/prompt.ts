@@ -3,21 +3,6 @@ import type { ChatTurn } from '@support-agent/llm';
 /** Passages retrieved for one question, numbered so the model can cite them as [1], [2]… */
 export type PromptSource = { n: number; filename: string; text: string };
 
-/**
- * Groups questions that only differ in case, punctuation or spacing:
- * "Do you ship to Dubai?" and "do u ship to dubai " stay apart only by the "u".
- */
-export function normalizeQuestion(text: string) {
-  return text
-    .toLowerCase()
-    // Keep letters, digits AND combining marks (\p{M}): Hindi vowel signs like ् ा ु are marks,
-    // and dropping them would turn क्या into "क य".
-    .replace(/[^\p{L}\p{M}\p{N}\s]/gu, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 200);
-}
-
 /** Said when the agent ran out of tool steps without finishing. */
 export const GIVE_UP_ANSWER = "Sorry, I couldn't finish that. A team member can help: just ask for a person.";
 

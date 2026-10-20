@@ -16,3 +16,7 @@ export async function nextSequence(name: string) {
   );
   return counter.seq;
 }
+
+export async function deleteSequence(name: string) {
+  await CounterModel.deleteOne({ _id: name });
+}

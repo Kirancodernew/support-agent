@@ -3,6 +3,8 @@ import type { Llm } from './types';
 
 export {
   EMBEDDING_DIMENSIONS,
+  isLlmBusy,
+  LlmBusyError,
   type ChatTurn,
   type EmbedKind,
   type GenerateEvent,

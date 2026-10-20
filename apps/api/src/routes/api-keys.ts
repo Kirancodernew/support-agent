@@ -4,6 +4,7 @@ import { ApiKeyModel, isValidObjectId } from '@support-agent/db';
 import { getAuth, requireAuth } from '../auth/require-auth';
 import { generateApiKey } from '../lib/api-key';
 import { HttpError } from '../lib/http-error';
+import { forbidInDemo } from '../lib/demo';
 import { parseBody } from '../lib/validate';
 
 const MAX_ACTIVE_KEYS = 10;
@@ -31,7 +32,7 @@ apiKeysRouter.get('/', async (req, res) => {
   res.json({ apiKeys: keys.map(toPublic) });
 });
 
-apiKeysRouter.post('/', async (req, res) => {
+apiKeysRouter.post('/', forbidInDemo('Creating API keys'), async (req, res) => {
   const { workspaceId } = getAuth(req);
   const { name } = parseBody(createSchema, req.body);
 
@@ -46,7 +47,7 @@ apiKeysRouter.post('/', async (req, res) => {
   res.status(201).json({ key, apiKey: toPublic(apiKey) });
 });
 
-apiKeysRouter.delete('/:id', async (req, res) => {
+apiKeysRouter.delete('/:id', forbidInDemo('Revoking API keys'), async (req, res) => {
   const { workspaceId } = getAuth(req);
   const { id } = req.params;
   // Same 404 for "doesn't exist" and "belongs to another workspace": no hint that the id is real.

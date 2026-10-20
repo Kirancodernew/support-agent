@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildSystemPrompt, buildUserTurn, normalizeQuestion, retrievalQuery } from '../src/chat/prompt';
+import { normalizeQuestion } from '@support-agent/db';
+import { buildSystemPrompt, buildUserTurn, retrievalQuery } from '../src/chat/prompt';
 
 describe('prompt', () => {
   it('tells the model to use only the sources, cite them, and admit when it does not know', () => {

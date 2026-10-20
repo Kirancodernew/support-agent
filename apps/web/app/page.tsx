@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { TryDemoButton } from '@/components/try-demo-button';
 
 // Render on every request so the status is live, not frozen at build time.
 export const dynamic = 'force-dynamic';
@@ -23,8 +24,15 @@ export default async function Home() {
     <main>
       <h1>Support Agent</h1>
       <p>An AI support agent that answers from your docs and takes actions for your customers.</p>
+      <ul>
+        <li>Upload your help docs; the agent answers with citations, and says &quot;I don&apos;t know&quot; instead of guessing.</li>
+        <li>Add one script tag to your site for a chat widget.</li>
+        <li>It checks orders, raises tickets after the customer confirms, and hands off to your team.</li>
+        <li>Insights show what customers ask that your docs don&apos;t answer yet.</li>
+      </ul>
       <div className="actions">
-        <Link className="button" href="/signup">
+        <TryDemoButton />
+        <Link className="button secondary" href="/signup">
           Get started
         </Link>
         <Link className="button secondary" href="/login">

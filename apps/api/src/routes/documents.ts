@@ -5,6 +5,7 @@ import { ChunkModel, DocumentModel, isValidObjectId } from '@support-agent/db';
 import { getAuth, requireAuth } from '../auth/require-auth';
 import type { AppDeps } from '../deps';
 import { HttpError } from '../lib/http-error';
+import { forbidInDemo } from '../lib/demo';
 import { parseBody } from '../lib/validate';
 
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;
@@ -55,7 +56,7 @@ export function documentsRouter({ storage, ingestQueue }: Pick<AppDeps, 'storage
   router.use(requireAuth);
 
   // Step 1: create the record and hand the browser a one-time upload form for S3.
-  router.post('/', async (req, res) => {
+  router.post('/', forbidInDemo('Uploading documents'), async (req, res) => {
     const { workspaceId } = getAuth(req);
     const { filename, size } = parseBody(createSchema, req.body);
 
@@ -76,7 +77,7 @@ export function documentsRouter({ storage, ingestQueue }: Pick<AppDeps, 'storage
   });
 
   // Step 2: the browser uploaded to S3; check the file really is there, then queue processing.
-  router.post('/:id/complete', async (req, res) => {
+  router.post('/:id/complete', forbidInDemo('Uploading documents'), async (req, res) => {
     const { workspaceId } = getAuth(req);
     if (!isValidObjectId(req.params.id)) throw notFound();
     const doc = await DocumentModel.findOne({ _id: req.params.id, workspaceId });
@@ -103,7 +104,7 @@ export function documentsRouter({ storage, ingestQueue }: Pick<AppDeps, 'storage
     res.json({ documents: docs.map(toPublic) });
   });
 
-  router.delete('/:id', async (req, res) => {
+  router.delete('/:id', forbidInDemo('Deleting documents'), async (req, res) => {
     const { workspaceId } = getAuth(req);
     if (!isValidObjectId(req.params.id)) throw notFound();
     const doc = await DocumentModel.findOneAndDelete({ _id: req.params.id, workspaceId });

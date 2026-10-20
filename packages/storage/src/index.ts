@@ -1,4 +1,4 @@
-import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { createPresignedPost } from '@aws-sdk/s3-presigned-post';
 
 export type StorageConfig = { region: string; bucket: string; accessKeyId: string; secretAccessKey: string };
@@ -10,6 +10,8 @@ export interface Storage {
   presignUpload(key: string, contentType: string, maxBytes: number): Promise<PresignedUpload>;
   exists(key: string): Promise<boolean>;
   download(key: string): Promise<Uint8Array>;
+  /** Server-side upload, for files we create ourselves (the demo's documents). */
+  put(key: string, body: Uint8Array | string, contentType: string): Promise<void>;
   remove(key: string): Promise<void>;
 }
 
@@ -52,6 +54,10 @@ export function createS3Storage(config: StorageConfig): Storage {
       const res = await s3.send(new GetObjectCommand({ Bucket, Key: key }));
       if (!res.Body) throw new Error(`empty S3 object: ${key}`);
       return res.Body.transformToByteArray();
+    },
+
+    async put(key, body, contentType) {
+      await s3.send(new PutObjectCommand({ Bucket, Key: key, Body: body, ContentType: contentType }));
     },
 
     async remove(key) {

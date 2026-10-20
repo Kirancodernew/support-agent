@@ -55,7 +55,7 @@ export function publicRouter(deps: AppDeps) {
     const body = parseBody(chatSchema, req.body);
     const workspace = await WorkspaceModel.findOne(
       { publishableKey: body.key },
-      { name: 1, allowedOrigins: 1, orderWebhookUrl: 1, webhookSecret: 1, notifyEmail: 1 },
+      { name: 1, allowedOrigins: 1, orderWebhookUrl: 1, webhookSecret: 1, notifyEmail: 1, isDemo: 1 },
     );
     if (!workspace) throw unknownKey();
     const workspaceId = String(workspace._id);

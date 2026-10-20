@@ -25,6 +25,7 @@ const storage: Storage = {
   presignUpload: async () => ({ url: '', fields: {} }),
   exists: async (k) => files.has(k),
   download: async (k) => files.get(k) ?? new Uint8Array(),
+  put: async (k, body) => void files.set(k, typeof body === 'string' ? new TextEncoder().encode(body) : body),
   remove: async (k) => void files.delete(k),
 };
 // The ingest job only embeds; it never generates text.

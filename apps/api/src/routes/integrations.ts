@@ -7,12 +7,14 @@ import { getAuth, requireAuth } from '../auth/require-auth';
 import type { AppDeps } from '../deps';
 import { env } from '../env';
 import { HttpError } from '../lib/http-error';
+import { forbidInDemo } from '../lib/demo';
 import { parseBody } from '../lib/validate';
 
 type WorkspaceDoc = InstanceType<typeof WorkspaceModel>;
 const toPublic = (w: WorkspaceDoc) => ({
   orderWebhookUrl: w.orderWebhookUrl ?? null,
-  webhookSecret: w.webhookSecret ?? null,
+  // In the demo the secret is the demo shop's real one, and every visitor can see this page.
+  webhookSecret: w.isDemo ? (w.webhookSecret ? 'hidden in the demo' : null) : (w.webhookSecret ?? null),
   notifyEmail: w.notifyEmail ?? null,
   demoShopAvailable: Boolean(env.DEMO_SHOP_SECRET),
 });
@@ -43,7 +45,7 @@ export function integrationsRouter({ orders }: Pick<AppDeps, 'orders'>) {
     res.json(toPublic(await loadWorkspace(getAuth(req).workspaceId)));
   });
 
-  router.put('/', async (req, res) => {
+  router.put('/', forbidInDemo('Changing integrations'), async (req, res) => {
     const body = parseBody(settingsSchema, req.body);
     const workspace = await loadWorkspace(getAuth(req).workspaceId);
     if (body.orderWebhookUrl) {
@@ -62,7 +64,7 @@ export function integrationsRouter({ orders }: Pick<AppDeps, 'orders'>) {
     res.json(toPublic(workspace));
   });
 
-  router.post('/rotate-secret', async (req, res) => {
+  router.post('/rotate-secret', forbidInDemo('Changing integrations'), async (req, res) => {
     const workspace = await loadWorkspace(getAuth(req).workspaceId);
     workspace.webhookSecret = newSecret();
     await workspace.save();
@@ -70,7 +72,7 @@ export function integrationsRouter({ orders }: Pick<AppDeps, 'orders'>) {
   });
 
   // Connects the built-in demo shop (a separate endpoint on the web app) so the order tool can be tried.
-  router.post('/use-demo-shop', async (req, res) => {
+  router.post('/use-demo-shop', forbidInDemo('Changing integrations'), async (req, res) => {
     if (!env.DEMO_SHOP_SECRET) throw new HttpError(404, 'not_available', 'The demo shop is not set up on this server.');
     const workspace = await loadWorkspace(getAuth(req).workspaceId);
     workspace.orderWebhookUrl = new URL('/demo-shop/orders', env.PUBLIC_WEB_URL).toString();

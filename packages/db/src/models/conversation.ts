@@ -62,4 +62,19 @@ const conversationSchema = new Schema(
 conversationSchema.index({ workspaceId: 1, updatedAt: -1, _id: -1 });
 conversationSchema.index({ workspaceId: 1, visitorId: 1, updatedAt: -1 }, { sparse: true });
 
+/**
+ * Groups questions that only differ in case, punctuation or spacing:
+ * "Do you ship to Dubai?" and "do u ship to dubai " stay apart only by the "u".
+ */
+export function normalizeQuestion(text: string) {
+  return text
+    .toLowerCase()
+    // Keep letters, digits AND combining marks (\p{M}): Hindi vowel signs like ् ा ु are marks,
+    // and dropping them would turn क्या into "क य".
+    .replace(/[^\p{L}\p{M}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 200);
+}
+
 export const ConversationModel = model('Conversation', conversationSchema);
