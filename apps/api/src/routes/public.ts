@@ -2,6 +2,7 @@ import { Router, type Response } from 'express';
 import { z } from '@support-agent/config';
 import { ConversationModel, isValidObjectId, MAX_MESSAGES_PER_CONVERSATION, WorkspaceModel } from '@support-agent/db';
 import { streamAnswer } from '../chat/answer';
+import { feedbackSchema, setFeedback } from './conversations';
 import type { AppDeps } from '../deps';
 import { HttpError } from '../lib/http-error';
 import type { RateLimiter } from '../lib/rate-limit';
@@ -96,6 +97,19 @@ export function publicRouter(deps: AppDeps) {
       conversation,
       message: body.message,
     });
+  });
+
+  // A website visitor rating an answer. Only in their own conversation (same visitor id).
+  router.post('/feedback', async (req, res) => {
+    const body = parseBody(
+      feedbackSchema.extend({ key, visitorId: chatSchema.shape.visitorId, conversationId: z.string() }),
+      req.body,
+    );
+    const workspace = await WorkspaceModel.findOne({ publishableKey: body.key }, { _id: 1 });
+    if (!workspace) throw unknownKey();
+    await enforce(deps.rateLimiter, res, `widget:feedback:${String(workspace._id)}:${body.visitorId}`, 30, 60);
+    await setFeedback({ workspaceId: workspace._id, visitorId: body.visitorId }, body.conversationId, body);
+    res.status(204).end();
   });
 
   return router;

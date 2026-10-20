@@ -3,6 +3,21 @@ import type { ChatTurn } from '@support-agent/llm';
 /** Passages retrieved for one question, numbered so the model can cite them as [1], [2]… */
 export type PromptSource = { n: number; filename: string; text: string };
 
+/**
+ * Groups questions that only differ in case, punctuation or spacing:
+ * "Do you ship to Dubai?" and "do u ship to dubai " stay apart only by the "u".
+ */
+export function normalizeQuestion(text: string) {
+  return text
+    .toLowerCase()
+    // Keep letters, digits AND combining marks (\p{M}): Hindi vowel signs like ् ा ु are marks,
+    // and dropping them would turn क्या into "क य".
+    .replace(/[^\p{L}\p{M}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 200);
+}
+
 /** Said when the agent ran out of tool steps without finishing. */
 export const GIVE_UP_ANSWER = "Sorry, I couldn't finish that. A team member can help: just ask for a person.";
 
@@ -21,6 +36,8 @@ export function buildSystemPrompt(workspaceName: string) {
     '- Problems you cannot solve (damaged item, refund issue, complaint): offer to create a ticket with create_ticket.',
     '- If they want a phone call: request_callback. If they ask for a person or are upset: handoff_to_human.',
     '- Before creating a ticket or call-back, confirm the details with the customer. If a tool replies "confirmation_required", ask the customer to confirm and stop; never say it is done until the tool succeeds.',
+    "- If the customer asks about this business and nothing above answers it, call flag_unanswered, then say you don't know.",
+    `- Off-topic questions (general knowledge, trivia, chit-chat): don't answer them, even if you know the answer, and don't flag them. Say you can only help with questions about ${workspaceName}.`,
     '- Never invent order details, ticket numbers or promises. Only report what tools return.',
     "- Be concise and friendly: a few short sentences. Reply in the same language as the customer.",
   ].join('\n');

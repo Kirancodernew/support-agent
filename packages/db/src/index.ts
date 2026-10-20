@@ -1,4 +1,4 @@
-export { connectDb, disconnectDb, isValidObjectId, runInTransaction, toObjectId } from './connect';
+export { connectDb, disconnectDb, isValidObjectId, newObjectId, runInTransaction, toObjectId } from './connect';
 export { createAtlasRetriever, isDocumentSearchable, type Retriever, type SearchHit } from './retriever';
 export { ensureVectorIndex, VECTOR_INDEX } from './vector-index';
 export { ApiKeyModel } from './models/api-key';

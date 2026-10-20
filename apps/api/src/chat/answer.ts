@@ -1,9 +1,9 @@
 import type { Request, Response } from 'express';
-import { ConversationModel, DocumentModel } from '@support-agent/db';
+import { ConversationModel, DocumentModel, newObjectId } from '@support-agent/db';
 import type { ChatTurn, ToolCall } from '@support-agent/llm';
-import { executeTool, TOOL_DECLARATIONS, type ToolContext } from '../agent/tools';
+import { executeTool, FLAG_UNANSWERED, isInternalTool, TOOL_DECLARATIONS, type ToolContext } from '../agent/tools';
 import type { AppDeps } from '../deps';
-import { buildSystemPrompt, buildUserTurn, GIVE_UP_ANSWER, HISTORY_MESSAGES, retrievalQuery } from './prompt';
+import { buildSystemPrompt, buildUserTurn, GIVE_UP_ANSWER, HISTORY_MESSAGES, normalizeQuestion, retrievalQuery } from './prompt';
 
 const TOP_K = 5;
 /** Most model↔tool round trips per message: a confused model can't loop (or spend) forever. */
@@ -84,13 +84,22 @@ export async function streamAnswer(
     answer += text;
     sendEvent(res, 'token', { text });
   };
+  // Known up front so the client can attach 👍/👎 to this exact answer.
+  const answerId = newObjectId();
   const saveAnswer = (extra: { totalMs?: number; interrupted?: boolean }) =>
     ConversationModel.updateOne(
       { _id: conversation._id },
       {
         $push: {
           messages: {
+            _id: answerId,
             role: 'assistant',
+            question: message,
+            questionKey: normalizeQuestion(message),
+            // The agent said it couldn't answer, or it had nothing to go on at all.
+            unanswered:
+              actions.some((a) => a.tool === FLAG_UNANSWERED) ||
+              (sources.length === 0 && !actions.some((a) => a.ok && a.tool !== FLAG_UNANSWERED)),
             content: answer || '…',
             sources: citedSources.map(({ n: _n, ...s }) => s),
             actions: actions.length ? actions : undefined,
@@ -134,9 +143,10 @@ export async function streamAnswer(
       turns.push({ role: 'assistant', text: stepText, toolCalls: calls, providerParts });
       const results = [];
       for (const call of calls) {
-        sendEvent(res, 'tool', { name: call.name, status: 'running' });
+        const visible = !isInternalTool(call.name); // bookkeeping tools get no status line
+        if (visible) sendEvent(res, 'tool', { name: call.name, status: 'running' });
         const outcome = await executeTool(call, ctx);
-        sendEvent(res, 'tool', { name: call.name, status: outcome.ok ? 'done' : 'failed', label: outcome.label });
+        if (visible) sendEvent(res, 'tool', { name: call.name, status: outcome.ok ? 'done' : 'failed', label: outcome.label });
         actions.push({ tool: call.name, ok: outcome.ok });
         results.push({ id: call.id, name: call.name, result: outcome.result });
       }
@@ -148,7 +158,7 @@ export async function streamAnswer(
     const totalMs = Date.now() - started;
     await saveAnswer({ totalMs });
     req.log.info({ firstTokenMs, totalMs, sources: sources.length, actions, channel: conversation.channel }, 'chat answered');
-    sendEvent(res, 'done', { firstTokenMs, totalMs });
+    sendEvent(res, 'done', { firstTokenMs, totalMs, messageId: String(answerId) });
   } catch (err) {
     if (abort.signal.aborted) {
       if (answer) await saveAnswer({ interrupted: true }).catch(() => undefined);

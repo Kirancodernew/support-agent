@@ -26,6 +26,8 @@ type Tool<A> = {
   confirmFor?: (args: A) => string;
   /** Short status shown to the customer while the tool runs. */
   label: (args: A) => string;
+  /** Bookkeeping only: no status line is shown to the customer. */
+  internal?: boolean;
   run: (args: A, ctx: ToolContext) => Promise<unknown>;
 };
 
@@ -175,13 +177,40 @@ const handoffToHuman: Tool<{ reason: string }> = {
   },
 };
 
+export const FLAG_UNANSWERED = 'flag_unanswered';
+
+/**
+ * The agent reporting a gap in the business's docs. Retrieval scores can't tell "related passage"
+ * from "passage that answers it" (Phase 3), so the model — which reads the passages — says so.
+ * Recorded on the answer and listed in Insights → "Questions the agent couldn't answer".
+ */
+const flagUnanswered: Tool<{ topic: string }> = {
+  declaration: {
+    name: FLAG_UNANSWERED,
+    description:
+      "Call this when a customer asks about this business and neither the sources nor the other tools answer it, before you tell them you don't know. Do NOT call it for off-topic questions (general knowledge, chit-chat) or when you only need more details from the customer.",
+    parameters: {
+      type: 'object',
+      properties: { topic: { type: 'string', description: 'What was asked, in a few words, e.g. "student discount"' } },
+      required: ['topic'],
+    },
+  },
+  args: z.object({ topic: z.string().trim().min(1).max(200) }),
+  internal: true,
+  label: () => '',
+  run: async () => ({ ok: true, reply: "Recorded. Now tell the customer you don't know and suggest contacting the support team." }),
+};
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- each tool has its own argument type
 export const TOOLS: Record<string, Tool<any>> = {
   get_order_status: getOrderStatus,
   create_ticket: createTicket,
   request_callback: requestCallback,
   handoff_to_human: handoffToHuman,
+  [FLAG_UNANSWERED]: flagUnanswered,
 };
+
+export const isInternalTool = (name: string) => Boolean(TOOLS[name]?.internal);
 
 export const TOOL_DECLARATIONS = Object.values(TOOLS).map((t) => t.declaration);
 

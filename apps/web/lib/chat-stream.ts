@@ -15,7 +15,7 @@ export const TOOL_LABELS: Record<string, string> = {
 type Handlers = {
   onMeta: (meta: { conversationId: string; sources: ChatSource[] }) => void;
   onToken: (text: string) => void;
-  onDone: (stats: { firstTokenMs: number; totalMs: number }) => void;
+  onDone: (stats: { firstTokenMs: number; totalMs: number; messageId: string }) => void;
   onError: (message: string) => void;
   onTool?: (step: ToolStep) => void;
 };

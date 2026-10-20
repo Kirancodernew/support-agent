@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { ApiError } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 import { streamChat, type ChatSource, type ToolStep } from '@/lib/chat-stream';
+import { FeedbackButtons } from './feedback-buttons';
 import { applyToolStep, ToolSteps } from './tool-steps';
 
 type Message = {
@@ -12,6 +13,7 @@ type Message = {
   steps?: ToolStep[];
   streaming?: boolean;
   failed?: boolean;
+  id?: string;
 };
 
 /** A random id kept per browser, so a visitor's follow-ups stay in their own conversation. */
@@ -74,7 +76,7 @@ export function WidgetChat({ publishableKey, businessName }: { publishableKey: s
           },
           onToken: (text) => updateLast((m) => ({ ...m, content: m.content + text })),
           onTool: (step) => updateLast((m) => ({ ...m, steps: applyToolStep(m.steps, step) })),
-          onDone: () => updateLast((m) => ({ ...m, streaming: false })),
+          onDone: (stats) => updateLast((m) => ({ ...m, streaming: false, id: stats.messageId })),
           onError: (text) => updateLast((m) => ({ ...m, streaming: false, failed: true, content: m.content || text })),
         },
         undefined,
@@ -107,6 +109,16 @@ export function WidgetChat({ publishableKey, businessName }: { publishableKey: s
           <div key={i} className={`bubble ${m.role}${m.failed ? ' failed' : ''}`}>
             <ToolSteps steps={m.steps} />
             <p>{m.content || (m.streaming && !m.steps?.length ? 'Thinking…' : '')}</p>
+            {m.role === 'assistant' && m.id && conversationId && (
+              <FeedbackButtons
+                onRate={(value) =>
+                  api('/public/feedback', {
+                    method: 'POST',
+                    body: JSON.stringify({ key: publishableKey, visitorId: visitor.current, conversationId, messageId: m.id, value }),
+                  })
+                }
+              />
+            )}
             {m.role === 'assistant' && !m.streaming && m.sources && m.sources.length > 0 && (
               <div className="sources">
                 {m.sources.map((s) => (

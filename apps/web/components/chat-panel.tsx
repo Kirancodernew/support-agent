@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { type ErrorHandler } from '@/lib/api';
+import { api, type ErrorHandler } from '@/lib/api';
 import { streamChat, type ChatSource, type ToolStep } from '@/lib/chat-stream';
+import { FeedbackButtons } from './feedback-buttons';
 import { applyToolStep, ToolSteps } from './tool-steps';
 
 type Message = {
@@ -13,6 +14,7 @@ type Message = {
   streaming?: boolean;
   failed?: boolean;
   firstTokenMs?: number;
+  id?: string;
 };
 
 /** Try the agent on your own documents: answers stream in with their sources. */
@@ -57,7 +59,7 @@ export function ChatPanel({ onError }: { onError: ErrorHandler }) {
           },
           onToken: (text) => updateLast((m) => ({ ...m, content: m.content + text })),
           onTool: (step) => updateLast((m) => ({ ...m, steps: applyToolStep(m.steps, step) })),
-          onDone: (stats) => updateLast((m) => ({ ...m, streaming: false, firstTokenMs: stats.firstTokenMs })),
+          onDone: (stats) => updateLast((m) => ({ ...m, streaming: false, firstTokenMs: stats.firstTokenMs, id: stats.messageId })),
           onError: (text) => updateLast((m) => ({ ...m, streaming: false, failed: true, content: m.content || text })),
         },
         abort.signal,
@@ -104,6 +106,13 @@ export function ChatPanel({ onError }: { onError: ErrorHandler }) {
                     </span>
                   ))}
                 </div>
+              )}
+              {m.role === 'assistant' && m.id && conversationId && (
+                <FeedbackButtons
+                  onRate={(value) =>
+                    api(`/conversations/${conversationId}/feedback`, { method: 'POST', body: JSON.stringify({ messageId: m.id, value }) })
+                  }
+                />
               )}
               {m.firstTokenMs !== undefined && (
                 <small className="muted">first word in {(m.firstTokenMs / 1000).toFixed(1)}s</small>

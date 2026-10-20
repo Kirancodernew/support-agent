@@ -7,7 +7,9 @@ import { logger } from './logger';
 import { apiKeysRouter } from './routes/api-keys';
 import { authRouter } from './routes/auth';
 import { chatRouter } from './routes/chat';
+import { conversationsRouter } from './routes/conversations';
 import { inboxRouter } from './routes/inbox';
+import { insightsRouter } from './routes/insights';
 import { integrationsRouter } from './routes/integrations';
 import { publicRouter } from './routes/public';
 import { widgetSettingsRouter } from './routes/widget-settings';
@@ -37,6 +39,8 @@ export function createApp(deps: AppDeps) {
   app.use('/public', publicRouter(deps));
   app.use('/inbox', inboxRouter);
   app.use('/integrations', integrationsRouter(deps));
+  app.use('/insights', insightsRouter);
+  app.use('/conversations', conversationsRouter);
 
   app.use((_req, res) => {
     res.status(404).json({ error: 'not_found', message: 'Not found' });

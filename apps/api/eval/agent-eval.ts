@@ -30,7 +30,7 @@ Object.assign(process.env, {
   GEMINI_CHAT_MODEL: dotenv.GEMINI_CHAT_MODEL || 'gemini-3.5-flash-lite',
 });
 
-const { connectDb, disconnectDb, InboxItemModel, WorkspaceModel } = await import('@support-agent/db');
+const { connectDb, ConversationModel, disconnectDb, InboxItemModel, WorkspaceModel } = await import('@support-agent/db');
 const { createLlm } = await import('@support-agent/llm');
 const { createApp } = await import('../src/app');
 
@@ -82,6 +82,9 @@ const CASES: Case[] = [
   { name: 'docs: Sunday hours', turns: ['Are you open on Sunday?'], expect: [[]] },
   { name: 'not in docs: international', turns: ['Do you ship to the USA?'], expect: [[]] },
   { name: 'off-topic', turns: ["What's the capital of France?"], expect: [[]] },
+  { name: 'docs gap: student discount', turns: ['Do you have a student discount?'], expect: [['flag_unanswered']] },
+  { name: 'docs gap: gift wrapping', turns: ['Can you gift wrap my order?'], expect: [['flag_unanswered']] },
+  { name: 'docs gap: warranty', turns: ['What warranty do your lamps come with?'], expect: [['flag_unanswered']] },
   { name: 'asks for a person', turns: ['I want to talk to a real person'], expect: [['handoff_to_human']] },
   { name: 'angry customer', turns: ['This is ridiculous, nobody helps me. Get me a manager now.'], expect: [['handoff_to_human']] },
   { name: 'call-back request', turns: ['Please call me back on +91 98765 43210 tomorrow after 4pm about my refund'], expect: [['request_callback']] },
@@ -122,7 +125,8 @@ async function sendTurn(message: string, conversationId?: string) {
   const events = blocks.map((b) => ({ event: /^event: (.*)$/m.exec(b)?.[1], data: JSON.parse(/^data: (.*)$/m.exec(b)?.[1] ?? '{}') }));
   return {
     conversationId: events[0]?.data.conversationId as string,
-    tools: [...new Set(events.filter((e) => e.event === 'tool' && e.data.status !== 'running').map((e) => e.data.name as string))],
+    // Internal tools (flag_unanswered) have no status event, so read every tool from the saved answer.
+    tools: [] as string[],
     // A turn only counts if the customer actually got an answer (no error, e.g. a 429 from the model).
     answered: events.some((e) => e.event === 'done') && !events.some((e) => e.event === 'error'),
     text: events.filter((e) => e.event === 'token').map((e) => e.data.text).join('').replace(/\s+/g, ' ').trim(),
@@ -140,6 +144,8 @@ for (const [i, c] of CASES.entries()) {
   for (const [t, message] of c.turns.entries()) {
     const r = await sendTurn(message, conversationId);
     conversationId = r.conversationId;
+    const saved = await ConversationModel.findById(conversationId).lean();
+    r.tools = [...new Set((saved?.messages.at(-1)?.actions ?? []).map((x) => x.tool!))];
     seen.push(r.tools.join('+') || '-');
     const want = c.expect[t]!;
     const match = want.length === r.tools.length && want.every((x) => r.tools.includes(x));

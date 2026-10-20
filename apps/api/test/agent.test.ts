@@ -166,6 +166,29 @@ describe('agent tools', () => {
     expect(res.text).toContain(GIVE_UP_ANSWER);
   });
 
+  it('flag_unanswered marks the answer unanswered even when a passage was retrieved, without a status line', async () => {
+    const agent = await signedUpBrowser('owner@acme.test', 'Acme');
+    const ws = await WorkspaceModel.findOne({ name: 'Acme' });
+    const { DocumentModel, ChunkModel } = await import('@support-agent/db');
+    const { fakeEmbed } = await import('./fakes');
+    const doc = await DocumentModel.create({ workspaceId: ws!._id, filename: 'shipping.md', contentType: 'text/plain', size: 1, s3Key: 'k', status: 'ready' });
+    const text = 'Standard shipping inside India takes 3 to 5 days.';
+    await ChunkModel.create({ workspaceId: ws!._id, documentId: doc._id, position: 0, text, embedding: fakeEmbed(text) });
+
+    fakes.model.script.push(call('flag_unanswered', { topic: 'shipping to Dubai' }), say("I don't know. Please contact support."));
+    const res = await ask(agent, 'Do you ship to Dubai inside 3 days?');
+
+    expect((res.events[0]!.data as { sources: unknown[] }).sources).toHaveLength(1); // a related passage was found…
+    expect(res.tools).toEqual([]); // …the customer sees no bookkeeping status line…
+    const saved = await ConversationModel.findById(res.conversationId).lean();
+    expect(saved!.messages[1]).toMatchObject({ unanswered: true, actions: [{ tool: 'flag_unanswered', ok: true }] }); // …and it counts as unanswered
+
+    const summary = (await agent.get('/insights/summary').expect(200)).body;
+    expect(summary.actions).toEqual({}); // not shown as an "action taken"
+    expect(summary.unansweredPct).toBe(100);
+    expect((await agent.get('/insights/unanswered')).body.questions[0].question).toBe('Do you ship to Dubai inside 3 days?');
+  });
+
   it('tells the model about unknown tools instead of crashing', async () => {
     const agent = await signedUpBrowser();
     fakes.model.script.push(call('delete_all_orders', {}), say('I cannot do that.'));

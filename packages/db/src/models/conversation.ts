@@ -25,6 +25,14 @@ const messageSchema = new Schema(
     interrupted: { type: Boolean },
     // Tools the agent used while answering, for the transcript and Phase 6 analytics.
     actions: { type: [{ tool: String, ok: Boolean, _id: false }], default: undefined },
+    // Analytics, recorded when the answer is saved (cheap to query later, no joins needed):
+    // the question it answered, that question normalised for grouping, and whether the agent
+    // had nothing to go on (no passage used and no tool succeeded).
+    question: { type: String },
+    questionKey: { type: String },
+    unanswered: { type: Boolean },
+    // The customer's 👍 / 👎 on this answer.
+    feedback: { type: String, enum: ['up', 'down', null], default: undefined },
   },
   { timestamps: { createdAt: true, updatedAt: false } },
 );
@@ -51,7 +59,7 @@ const conversationSchema = new Schema(
   { timestamps: true },
 );
 
-conversationSchema.index({ workspaceId: 1, updatedAt: -1 });
+conversationSchema.index({ workspaceId: 1, updatedAt: -1, _id: -1 });
 conversationSchema.index({ workspaceId: 1, visitorId: 1, updatedAt: -1 }, { sparse: true });
 
 export const ConversationModel = model('Conversation', conversationSchema);

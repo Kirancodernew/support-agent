@@ -11,7 +11,7 @@ Phases 0–3 are enough for the resume; 4–7 make it stand out.
 | 3. RAG chat | ✅ Done — live: streamed, cited answers; refusals; follow-ups |
 | 4. Embeddable widget | ✅ Done — live: answers on allowed sites, browser-blocked elsewhere |
 | 5. Agent tools | ✅ Done — live: signed order lookups, confirmed tickets, Inbox |
-| 6. Dashboard | Not started |
+| 6. Dashboard | ✅ Done — Insights: metrics, unanswered questions, feedback, conversation browser |
 | 7. Polish | Not started |
 
 ---

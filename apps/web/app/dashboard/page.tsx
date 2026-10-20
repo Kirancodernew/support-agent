@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { ApiKeysPanel } from '@/components/api-keys-panel';
+import { AppNav } from '@/components/app-nav';
 import { ChatPanel } from '@/components/chat-panel';
 import { DocumentsPanel } from '@/components/documents-panel';
 import { InboxPanel } from '@/components/inbox-panel';
@@ -40,6 +41,7 @@ export default function DashboardPage() {
 
   return (
     <main>
+      <AppNav />
       <div className="row">
         <div>
           <h1>{me.workspace.name}</h1>

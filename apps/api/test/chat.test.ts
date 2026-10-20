@@ -71,6 +71,9 @@ describe('chat', () => {
       ['assistant', 'Standard shipping takes 3 to 5 days [1].'],
     ]);
     expect(saved!.messages[1]!.sources![0]).toMatchObject({ filename: 'shipping.md' });
+    // Recorded for analytics at write time, and the answer's id is sent for 👍/👎.
+    expect(saved!.messages[1]).toMatchObject({ question: 'how long does standard shipping take', questionKey: 'how long does standard shipping take', unanswered: false });
+    expect(events.at(-1)!.data.messageId).toBe(String(saved!.messages[1]!._id));
   });
 
   it('tells the model when nothing relevant was found, so it can say it doesn\'t know or use a tool', async () => {
@@ -79,12 +82,15 @@ describe('chat', () => {
 
     const { events } = await ask(agent, 'who is your chief executive officer');
     expect((events[0]!.data as { sources: unknown[] }).sources).toEqual([]);
+    const saved = await ConversationModel.findById((events[0]!.data as { conversationId: string }).conversationId).lean();
+    expect(saved!.messages[1]).toMatchObject({ unanswered: true, questionKey: 'who is your chief executive officer' });
     expect(fakes.generated[0]!.turns.at(-1)).toMatchObject({ text: expect.stringContaining('(no relevant passages found)') });
     expect(fakes.generated[0]!.tools?.map((t) => t.name)).toEqual([
       'get_order_status',
       'create_ticket',
       'request_callback',
       'handoff_to_human',
+      'flag_unanswered',
     ]);
   });
 

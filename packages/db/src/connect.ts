@@ -18,3 +18,6 @@ export const isValidObjectId = (id: unknown): id is string =>
   typeof id === 'string' && mongoose.isValidObjectId(id);
 
 export const toObjectId = (id: string) => new mongoose.Types.ObjectId(id);
+
+/** A fresh id, for when the caller needs to know a document's id before saving it. */
+export const newObjectId = () => new mongoose.Types.ObjectId();
