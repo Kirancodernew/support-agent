@@ -74,6 +74,17 @@ overloaded provider apart from a bug. Timeouts aren't retried: someone is waitin
 2. **Demo leaked the signing secret** (above). Now hidden for demo sessions, with a test.
 3. **Gemini free tier slow for a day** (20–35s per call): not quota exhaustion (that's an instant
    429) but queueing. Led to the busy message above.
+4. **A Railway variable reference pointed at a service that doesn't exist.** The worker's
+   `DEMO_SHOP_SECRET` was set to `${{api.DEMO_SHOP_SECRET}}`, but the service is called
+   `@support-agent/api`, so it resolved to an empty string. The worker's env validation
+   (`min(16)`) refused to start: a crash loop with a clear message, instead of a worker that runs
+   half-configured. Fixed by picking the reference from Railway's autocomplete. Lesson: validate
+   config at startup and fail loudly; it turned a silent bug into a one-line log.
+5. **Local and production shared one database.** The local `.env` pointed at the same Atlas
+   database as production, so the local worker created the demo with `localhost` settings, and
+   local test accounts and evaluation chats landed in production data. The production reset fixed
+   the demo; the real fix is a separate database for development (`support_agent_dev` on the same
+   cluster). Lesson: dev and prod need separate data, even on a free tier.
 
 ## Verified
 
@@ -84,6 +95,13 @@ overloaded provider apart from a bug. Timeouts aren't retried: someone is waitin
 - Demo in the browser: one click from the home page; banner, Inbox T-0002…T-0004, both documents
   ready, Insights with 15 conversations / 78% satisfaction / "student discount" asked 3×; a live
   question answered from the demo's own documents with a citation.
+- **Live, in production** (Vercel → Railway, through the public site): one-click demo login;
+  both documents ready; Insights with 15 conversations, 40% from docs, 78% satisfaction, p95 first
+  word 1.4s; Inbox T-0002…T-0004; widget allowed only on the Vercel site; the signing secret shown
+  as "hidden in the demo"; uploads, workspace delete and API keys refused with 403; and the
+  Integrations "Test" looked up order 1001 through the **signed webhook** to the Vercel demo shop
+  ("Shipped, arrives 21 Oct"), which proves API, worker and web share the secret. Worker log:
+  `demo reset … conversations: 22, inboxItems: 4`.
 - Tests: delete (API + worker, including failure part-way and retry), demo (read-only routes, chat
   caps, no email, hidden secret, seed + reset), busy message.
 
@@ -96,3 +114,5 @@ overloaded provider apart from a bug. Timeouts aren't retried: someone is waitin
 - `setInterval` vs a scheduler stored in Redis with several worker copies?
 - Exponential backoff with jitter: what problem does jitter solve? Why not retry a timeout?
 - Why did your unit test miss the job-id bug, and what do you do about fakes in general?
+- Why validate configuration at startup? What happened when a secret resolved to empty?
+- Why keep development and production data apart?
